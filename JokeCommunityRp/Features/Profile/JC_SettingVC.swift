@@ -22,6 +22,13 @@ class JC_SettingVC: JC_BaseVC {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if isMovingFromParent {
+            (tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(false)
+        }
+    }
+
     private func setupUI() {
         view.addSubview(backButton)
         view.addSubview(menuStackView)
@@ -45,9 +52,19 @@ class JC_SettingVC: JC_BaseVC {
             make.height.equalTo(64)
         }
 
-        menuItems.forEach { imageName in
-            menuStackView.addArrangedSubview(makeMenuButton(imageName: imageName))
+        menuItems.enumerated().forEach { index, imageName in
+            let button = makeMenuButton(imageName: imageName)
+            if imageName == "setting_backlist" {
+                button.addTarget(self, action: #selector(clickBlacklist), for: .touchUpInside)
+            }
+            menuStackView.addArrangedSubview(button)
         }
+    }
+
+    @objc private func clickBlacklist() {
+        let blacklistVC = JC_BlackListVC()
+        blacklistVC.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(blacklistVC, animated: true)
     }
 
     @objc private func clickBack() {

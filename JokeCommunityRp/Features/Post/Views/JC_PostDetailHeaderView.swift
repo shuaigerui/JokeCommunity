@@ -1,0 +1,257 @@
+//
+//  JC_PostDetailHeaderView.swift
+//  JokeCommunityRp
+//
+//  Created by  mac on 2026/6/2.
+//
+
+import UIKit
+
+class JC_PostDetailHeaderView: UIView {
+
+    static let headerHeight: CGFloat = 400
+
+    override init(frame: CGRect) {
+        super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: Self.headerHeight))
+        setupUI()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(with post: JC_PostItem, relationText: String = "Good Friend") {
+        nameLabel.text = post.userName
+        ageLabel.text = post.age
+        avatarImageView.image = post.avatar
+        contentLabel.text = post.content
+        likeCountLabel.text = post.likeCount
+
+        leftImageView.image = post.images.first ?? nil
+        let hasSecondImage = post.images.count > 1
+        rightImageView.isHidden = !hasSecondImage
+        rightImageView.image = hasSecondImage ? post.images[1] : nil
+    }
+
+    private func setupUI() {
+        backgroundColor = .clear
+
+        addSubview(avatarImageView)
+        addSubview(nameLabel)
+        addSubview(genderContainer)
+        genderContainer.addSubview(genderImageView)
+        genderContainer.addSubview(ageLabel)
+        addSubview(relationButton)
+        addSubview(contentLabel)
+        addSubview(imageContainerView)
+        imageContainerView.addSubview(leftImageView)
+        imageContainerView.addSubview(rightImageView)
+        addSubview(actionView)
+        actionView.addSubview(likeButton)
+        actionView.addSubview(likeCountLabel)
+        actionView.addSubview(dislikeButton)
+        actionView.addSubview(reportButton)
+        addSubview(lineView)
+
+        avatarImageView.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(16)
+            make.leading.equalToSuperview().offset(30)
+            make.size.equalTo(68)
+        }
+
+        nameLabel.snp.makeConstraints { make in
+            make.top.equalTo(avatarImageView)
+            make.leading.equalTo(avatarImageView.snp.trailing).offset(12)
+            make.trailing.lessThanOrEqualToSuperview().offset(-30)
+        }
+
+        genderContainer.snp.makeConstraints { make in
+            make.top.equalTo(nameLabel.snp.bottom).offset(8)
+            make.leading.equalTo(nameLabel)
+            make.height.equalTo(22)
+        }
+
+        genderImageView.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(8)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(13)
+        }
+
+        ageLabel.snp.makeConstraints { make in
+            make.leading.equalTo(genderImageView.snp.trailing).offset(5)
+            make.trailing.equalToSuperview().offset(-10)
+            make.centerY.equalToSuperview()
+        }
+
+        relationButton.snp.makeConstraints { make in
+            make.leading.equalTo(genderContainer.snp.trailing).offset(10)
+            make.centerY.equalTo(genderContainer)
+            make.height.equalTo(21)
+            make.height.equalTo(95)
+        }
+        
+        contentLabel.snp.makeConstraints { make in
+            make.top.equalTo(avatarImageView.snp.bottom).offset(14)
+            make.leading.trailing.equalToSuperview().inset(30)
+        }
+
+        imageContainerView.snp.makeConstraints { make in
+            make.top.equalTo(contentLabel.snp.bottom).offset(10)
+            make.leading.trailing.equalToSuperview().inset(30)
+            make.height.equalTo(199)
+        }
+
+        leftImageView.snp.makeConstraints { make in
+            make.top.leading.bottom.equalToSuperview()
+            make.width.equalTo(rightImageView)
+        }
+
+        rightImageView.snp.makeConstraints { make in
+            make.top.trailing.bottom.equalToSuperview()
+            make.leading.equalTo(leftImageView.snp.trailing).offset(12)
+            make.width.equalTo(leftImageView)
+        }
+
+        actionView.snp.makeConstraints { make in
+            make.top.equalTo(imageContainerView.snp.bottom).offset(13)
+            make.leading.trailing.equalToSuperview().inset(30)
+            make.height.equalTo(22)
+        }
+
+        likeButton.snp.makeConstraints { make in
+            make.leading.centerY.equalToSuperview()
+            make.size.equalTo(20)
+        }
+
+        likeCountLabel.snp.makeConstraints { make in
+            make.leading.equalTo(likeButton.snp.trailing).offset(6)
+            make.centerY.equalTo(likeButton)
+        }
+
+        dislikeButton.snp.makeConstraints { make in
+            make.leading.equalTo(likeCountLabel.snp.trailing).offset(25)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(21)
+        }
+
+        reportButton.snp.makeConstraints { make in
+            make.trailing.centerY.equalToSuperview()
+            make.size.equalTo(22)
+        }
+
+        lineView.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(30)
+            make.bottom.equalToSuperview().offset(-20)
+            make.height.equalTo(1)
+        }
+    }
+
+    private let avatarImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 34
+        imageView.backgroundColor = UIColor(hex: "#E8E8E8")
+        return imageView
+    }()
+
+    private let nameLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.boldSystemFont(ofSize: 18)
+        label.textColor = UIColor(hex: "#333333")
+        return label
+    }()
+
+    private let genderContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = .white
+        view.layer.cornerRadius = 11
+        view.layer.masksToBounds = true
+        return view
+    }()
+
+    private let genderImageView: UIImageView = {
+        let imageView = UIImageView(image: UIImage(named: "profile_female"))
+        imageView.contentMode = .scaleAspectFit
+        return imageView
+    }()
+
+    private let ageLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 12, weight: .medium)
+        label.textColor = UIColor(hex: "#333333")
+        return label
+    }()
+
+    private let relationButton: UIButton = {
+        let v = UIButton(type: .custom)
+        v.setImage(UIImage(named: "post_friended"), for: .selected)
+        v.setImage(UIImage(named: "post_friend"), for: .normal)
+        return v
+    }()
+
+    private let contentLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 16)
+        label.textColor = UIColor(hex: "#333333")
+        label.numberOfLines = 0
+        return label
+    }()
+
+    private let imageContainerView = UIView()
+
+    private let leftImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 12
+        imageView.backgroundColor = UIColor(hex: "#F2F2F2")
+        return imageView
+    }()
+
+    private let rightImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 12
+        imageView.backgroundColor = UIColor(hex: "#F2F2F2")
+        return imageView
+    }()
+
+    private let actionView = UIView()
+
+    private let likeButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "profile_like"), for: .normal)
+        button.isUserInteractionEnabled = false
+        return button
+    }()
+
+    private let likeCountLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.boldSystemFont(ofSize: 14)
+        label.textColor = UIColor(hex: "#333333")
+        return label
+    }()
+
+    private let dislikeButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "profile_dislike"), for: .normal)
+        button.isUserInteractionEnabled = false
+        return button
+    }()
+
+    private let reportButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "post_report"), for: .normal)
+        button.isUserInteractionEnabled = false
+        return button
+    }()
+
+    private let lineView: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor(hex: "#CCCCCC")
+        return view
+    }()
+
+}

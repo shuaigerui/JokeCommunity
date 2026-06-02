@@ -28,27 +28,8 @@ class JC_ProfilePostCell: UITableViewCell {
         let hasSecondImage = post.images.count > 1
         rightImageView.isHidden = !hasSecondImage
         rightImageView.image = hasSecondImage ? post.images[1] : nil
-
-        updateImageLayout(hasSecondImage: hasSecondImage)
     }
 
-    private func updateImageLayout(hasSecondImage: Bool) {
-        leftImageView.snp.remakeConstraints { make in
-            make.top.leading.bottom.equalToSuperview()
-            if hasSecondImage {
-                make.width.equalTo(rightImageView)
-            } else {
-                make.trailing.equalToSuperview()
-            }
-        }
-
-        rightImageView.snp.remakeConstraints { make in
-            guard hasSecondImage else { return }
-            make.top.trailing.bottom.equalToSuperview()
-            make.leading.equalTo(leftImageView.snp.trailing).offset(imageSpacing)
-            make.width.equalTo(leftImageView)
-        }
-    }
 
     private func setupUI() {
         selectionStyle = .none
@@ -66,19 +47,15 @@ class JC_ProfilePostCell: UITableViewCell {
         actionView.addSubview(moreButton)
         contentView.addSubview(lineImageView)
 
-        let likeSize = imageDisplaySize(named: "profile_like", height: 20)
-        let dislikeSize = imageDisplaySize(named: "不喜欢", height: 20)
-        let moreSize = imageDisplaySize(named: "profile_more", height: 22)
-
         contentLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(16)
-            make.leading.trailing.equalToSuperview().inset(20)
+            make.top.equalToSuperview()
+            make.leading.trailing.equalToSuperview().inset(30)
         }
 
         imageContainerView.snp.makeConstraints { make in
-            make.top.equalTo(contentLabel.snp.bottom).offset(12)
-            make.leading.trailing.equalToSuperview().inset(20)
-            make.height.equalTo(imageContainerView.snp.width).multipliedBy(0.5).offset(-imageSpacing / 2)
+            make.top.equalTo(contentLabel.snp.bottom).offset(10)
+            make.leading.trailing.equalToSuperview().inset(30)
+            make.height.equalTo(200)
         }
 
         leftImageView.snp.makeConstraints { make in
@@ -88,19 +65,20 @@ class JC_ProfilePostCell: UITableViewCell {
 
         rightImageView.snp.makeConstraints { make in
             make.top.trailing.bottom.equalToSuperview()
-            make.leading.equalTo(leftImageView.snp.trailing).offset(imageSpacing)
+            make.leading.equalTo(leftImageView.snp.trailing).offset(12)
             make.width.equalTo(leftImageView)
         }
 
         actionView.snp.makeConstraints { make in
-            make.top.equalTo(imageContainerView.snp.bottom).offset(14)
-            make.leading.trailing.equalToSuperview().inset(20)
-            make.height.equalTo(28)
+            make.top.equalTo(imageContainerView.snp.bottom).offset(13)
+            make.leading.trailing.equalToSuperview().inset(30)
+            make.height.equalTo(22)
         }
 
         likeButton.snp.makeConstraints { make in
             make.leading.centerY.equalToSuperview()
-            make.size.equalTo(likeSize == .zero ? CGSize(width: 22, height: 20) : likeSize)
+            make.width.equalTo(22)
+            make.height.equalTo(20)
         }
 
         likeCountLabel.snp.makeConstraints { make in
@@ -109,29 +87,27 @@ class JC_ProfilePostCell: UITableViewCell {
         }
 
         dislikeButton.snp.makeConstraints { make in
-            make.leading.equalTo(likeCountLabel.snp.trailing).offset(20)
+            make.leading.equalTo(likeCountLabel.snp.trailing).offset(25)
             make.centerY.equalToSuperview()
-            make.size.equalTo(dislikeSize == .zero ? CGSize(width: 20, height: 20) : dislikeSize)
+            make.size.equalTo(21)
         }
 
         moreButton.snp.makeConstraints { make in
             make.trailing.centerY.equalToSuperview()
-            make.size.equalTo(moreSize == .zero ? CGSize(width: 22, height: 22) : moreSize)
+            make.size.equalTo(22)
         }
 
         lineImageView.snp.makeConstraints { make in
             make.top.equalTo(actionView.snp.bottom).offset(16)
-            make.leading.trailing.equalToSuperview().inset(20)
+            make.leading.trailing.equalToSuperview().inset(30)
             make.height.equalTo(1)
-            make.bottom.equalToSuperview()
+            make.bottom.equalToSuperview().offset(-20)
         }
     }
 
-    private let imageSpacing: CGFloat = 8
-
     private let contentLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.italicSystemFont(ofSize: 15)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 16)
         label.textColor = UIColor(hex: "#333333")
         label.numberOfLines = 0
         return label
@@ -161,7 +137,7 @@ class JC_ProfilePostCell: UITableViewCell {
 
     private let likeButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_like")?.withRenderingMode(.alwaysOriginal), for: .normal)
+        button.setImage(UIImage(named: "profile_like"), for: .normal)
         button.isUserInteractionEnabled = false
         return button
     }()
@@ -175,18 +151,22 @@ class JC_ProfilePostCell: UITableViewCell {
 
     private let dislikeButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "不喜欢")?.withRenderingMode(.alwaysOriginal), for: .normal)
+        button.setImage(UIImage(named: "profile_dislike"), for: .normal)
         button.isUserInteractionEnabled = false
         return button
     }()
 
     private let moreButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_more")?.withRenderingMode(.alwaysOriginal), for: .normal)
+        button.setImage(UIImage(named: "profile_more"), for: .normal)
         button.isUserInteractionEnabled = false
         return button
     }()
 
-    private let lineImageView = makeImageView(named: "profile_line")
+    private let lineImageView: UIView = {
+        let v = UIView()
+        v.backgroundColor = .black
+        return v
+    }()
 
 }

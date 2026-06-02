@@ -9,7 +9,11 @@ import UIKit
 
 class JC_ProfileHeaderView: UIView {
 
-    static let headerHeight: CGFloat = 425
+    static let headerHeight: CGFloat = 460
+
+    var onSettingTapped: (() -> Void)?
+    var onEditProfileTapped: (() -> Void)?
+    var onCoinsTapped: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: Self.headerHeight))
@@ -48,138 +52,136 @@ class JC_ProfileHeaderView: UIView {
         genderContainer.addSubview(ageLabel)
         addSubview(settingButton)
         addSubview(bioLabel)
-        addSubview(lineImageView)
         addSubview(friendsCountLabel)
         addSubview(friendsTitleLabel)
         addSubview(likesCountLabel)
         addSubview(likesTitleLabel)
         addSubview(editProfileButton)
-        addSubview(coinBannerView)
-        coinBannerView.addSubview(coinBgImageView)
-        coinBannerView.addSubview(coinIconImageView)
-        coinBannerView.addSubview(coinTitleLabel)
-        coinBannerView.addSubview(coinArrowImageView)
+        addSubview(coinBgImageView)
+        coinBgImageView.addSubview(coinIconImageView)
+        coinBgImageView.addSubview(coinTitleLabel)
+        coinBgImageView.addSubview(coinArrowImageView)
+        
+        
+        settingButton.addTarget(self, action: #selector(clickSettingButton), for: .touchUpInside)
+        editProfileButton.addTarget(self, action: #selector(clickEditProfileButton), for: .touchUpInside)
+        coinBgImageView.addTarget(self, action: #selector(clickCoinsButton), for: .touchUpInside)
 
-        let settingSize = imageDisplaySize(named: "profile_setting", height: 33)
-        let genderSize = imageDisplaySize(named: "性别", height: 13)
-        let coinIconSize = imageDisplaySize(named: "profile_coins", height: 42)
-        let coinArrowSize = imageDisplaySize(named: "profile_right", height: 16)
-
-        settingButton.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(24)
-            make.trailing.equalToSuperview().offset(-25)
-            make.size.equalTo(settingSize == .zero ? CGSize(width: 33, height: 33) : settingSize)
-        }
 
         avatarImageView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(78)
-            make.leading.equalToSuperview().offset(20)
-            make.width.height.equalTo(86)
+            make.top.equalTo(safeAreaLayoutGuide).offset(65)
+            make.leading.equalToSuperview().offset(28)
+            make.width.height.equalTo(80)
+        }
+        
+        settingButton.snp.makeConstraints { make in
+            make.centerY.equalTo(avatarImageView)
+            make.trailing.equalToSuperview().offset(-40)
+            make.size.equalTo(33)
         }
 
         nameLabel.snp.makeConstraints { make in
-            make.top.equalTo(avatarImageView).offset(8)
-            make.leading.equalTo(avatarImageView.snp.trailing).offset(16)
+            make.top.equalTo(avatarImageView).offset(11)
+            make.leading.equalTo(avatarImageView.snp.trailing).offset(12)
             make.trailing.lessThanOrEqualTo(settingButton.snp.leading).offset(-12)
+            make.height.equalTo(31)
         }
 
         genderContainer.snp.makeConstraints { make in
             make.top.equalTo(nameLabel.snp.bottom).offset(8)
             make.leading.equalTo(nameLabel)
-            make.height.equalTo(24)
+            make.height.equalTo(22)
         }
 
         genderImageView.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(8)
             make.centerY.equalToSuperview()
-            make.size.equalTo(genderSize == .zero ? CGSize(width: 13, height: 13) : genderSize)
+            make.size.equalTo(13)
         }
 
         ageLabel.snp.makeConstraints { make in
-            make.leading.equalTo(genderImageView.snp.trailing).offset(4)
+            make.leading.equalTo(genderImageView.snp.trailing).offset(5)
             make.trailing.equalToSuperview().offset(-10)
             make.centerY.equalToSuperview()
         }
 
         bioLabel.snp.makeConstraints { make in
             make.top.equalTo(avatarImageView.snp.bottom).offset(20)
-            make.leading.equalToSuperview().offset(21)
-            make.trailing.equalToSuperview().offset(-21)
+            make.leading.trailing.equalToSuperview().inset(28)
+            make.size.equalTo(22)
         }
 
         whiteCardView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(210)
+            make.size.equalTo(175)
+            make.top.equalTo(safeAreaLayoutGuide).offset(205)
             make.leading.trailing.bottom.equalToSuperview()
         }
 
-        lineImageView.snp.makeConstraints { make in
-            make.top.equalTo(whiteCardView).offset(18)
-            make.leading.trailing.equalToSuperview().inset(20)
-            make.height.equalTo(1)
-        }
-
         friendsCountLabel.snp.makeConstraints { make in
-            make.top.equalTo(lineImageView.snp.bottom).offset(22)
-            make.leading.equalToSuperview().offset(28)
+            make.top.equalTo(whiteCardView.snp.top).offset(25)
+            make.centerX.equalTo(friendsTitleLabel)
+            make.height.equalTo(22)
         }
 
         friendsTitleLabel.snp.makeConstraints { make in
             make.top.equalTo(friendsCountLabel.snp.bottom).offset(4)
-            make.centerX.equalTo(friendsCountLabel)
+            make.leading.equalToSuperview().offset(30)
+            make.height.equalTo(22)
         }
 
         likesCountLabel.snp.makeConstraints { make in
             make.centerY.equalTo(friendsCountLabel)
-            make.leading.equalTo(friendsCountLabel.snp.trailing).offset(36)
+            make.centerX.equalTo(likesTitleLabel)
+            make.height.equalTo(22)
         }
 
         likesTitleLabel.snp.makeConstraints { make in
             make.top.equalTo(likesCountLabel.snp.bottom).offset(4)
-            make.centerX.equalTo(likesCountLabel)
+            make.leading.equalTo(friendsTitleLabel.snp.trailing).offset(65)
+            make.height.equalTo(22)
         }
 
         editProfileButton.snp.makeConstraints { make in
-            make.centerY.equalTo(friendsCountLabel.snp.bottom)
-            make.trailing.equalToSuperview().offset(-24)
+            make.top.equalTo(whiteCardView.snp.top).offset(35)
+            make.trailing.equalToSuperview().offset(-30)
             make.width.equalTo(106)
             make.height.equalTo(33)
         }
 
-        coinBannerView.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(20)
-            make.bottom.equalToSuperview().offset(-25)
-            make.height.equalTo(49)
-        }
-
         coinBgImageView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+            make.leading.trailing.equalToSuperview().inset(28)
+            make.bottom.equalToSuperview().offset(-20)
+            make.height.equalTo(64)
         }
 
         coinIconImageView.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(18)
+            make.leading.equalToSuperview().offset(21)
             make.centerY.equalToSuperview()
-            make.size.equalTo(coinIconSize == .zero ? CGSize(width: 42, height: 42) : coinIconSize)
+            make.size.equalTo(33)
         }
 
         coinTitleLabel.snp.makeConstraints { make in
-            make.leading.equalTo(coinIconImageView.snp.trailing).offset(12)
+            make.leading.equalTo(coinIconImageView.snp.trailing).offset(15)
             make.centerY.equalToSuperview()
         }
 
         coinArrowImageView.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-18)
+            make.trailing.equalToSuperview().offset(-24)
             make.centerY.equalToSuperview()
-            make.size.equalTo(coinArrowSize == .zero ? CGSize(width: 9, height: 16) : coinArrowSize)
+            make.size.equalTo(CGSize(width: 9, height: 16))
         }
     }
+    
+    @objc private func clickSettingButton() {
+        onSettingTapped?()
+    }
 
-    private static func resizableCoinBgImage() -> UIImage? {
-        guard let image = UIImage(named: "profile_coinBg") else { return nil }
-        let cap = image.size.height / 2
-        return image.resizableImage(
-            withCapInsets: UIEdgeInsets(top: 0, left: cap, bottom: 0, right: cap),
-            resizingMode: .stretch
-        )
+    @objc private func clickEditProfileButton() {
+        onEditProfileTapped?()
+    }
+
+    @objc private func clickCoinsButton() {
+        onCoinsTapped?()
     }
 
     private let whiteCardView: UIView = {
@@ -195,10 +197,8 @@ class JC_ProfileHeaderView: UIView {
         let imageView = UIImageView()
         imageView.backgroundColor = .white
         imageView.contentMode = .scaleAspectFill
-        imageView.layer.cornerRadius = 43
+        imageView.layer.cornerRadius = 40
         imageView.layer.masksToBounds = true
-        imageView.layer.borderWidth = 2
-        imageView.layer.borderColor = UIColor.white.cgColor
         return imageView
     }()
 
@@ -212,12 +212,12 @@ class JC_ProfileHeaderView: UIView {
     private let genderContainer: UIView = {
         let view = UIView()
         view.backgroundColor = .white
-        view.layer.cornerRadius = 12
+        view.layer.cornerRadius = 11
         view.layer.masksToBounds = true
         return view
     }()
 
-    private let genderImageView = makeImageView(named: "性别")
+    private let genderImageView = makeImageView(named: "profile_female")
 
     private let ageLabel: UILabel = {
         let label = UILabel()
@@ -228,23 +228,20 @@ class JC_ProfileHeaderView: UIView {
 
     private let settingButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_setting")?.withRenderingMode(.alwaysOriginal), for: .normal)
+        button.setImage(UIImage(named: "profile_setting"), for: .normal)
         return button
     }()
 
     private let bioLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.italicSystemFont(ofSize: 15)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 16)
         label.textColor = UIColor(hex: "#333333")
-        label.numberOfLines = 2
         return label
     }()
 
-    private let lineImageView = makeImageView(named: "profile_line")
-
     private let friendsCountLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.boldSystemFont(ofSize: 20)
+        label.font = UIFont.boldSystemFont(ofSize: 16)
         label.textColor = UIColor(hex: "#333333")
         return label
     }()
@@ -252,14 +249,14 @@ class JC_ProfileHeaderView: UIView {
     private let friendsTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "friend"
-        label.font = UIFont.italicSystemFont(ofSize: 14)
-        label.textColor = UIColor(hex: "#999999")
+        label.font = UIFont.italicSystemFont(ofSize: 20)
+        label.textColor = .black
         return label
     }()
 
     private let likesCountLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.boldSystemFont(ofSize: 20)
+        label.font = UIFont.boldSystemFont(ofSize: 16)
         label.textColor = UIColor(hex: "#333333")
         return label
     }()
@@ -267,31 +264,24 @@ class JC_ProfileHeaderView: UIView {
     private let likesTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "like"
-        label.font = UIFont.italicSystemFont(ofSize: 14)
-        label.textColor = UIColor(hex: "#999999")
+        label.font = UIFont.italicSystemFont(ofSize: 20)
+        label.textColor = .black
         return label
     }()
 
     private let editProfileButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setBackgroundImage(JC_ProfileHeaderView.resizableCoinBgImage(), for: .normal)
+        button.setBackgroundImage(UIImage(named: "profile_editBg"), for: .normal)
         button.setTitle("Edit Profile", for: .normal)
         button.setTitleColor(UIColor(hex: "#333333"), for: .normal)
         button.titleLabel?.font = UIFont(name: "Helvetica-BoldOblique", size: 14) ?? UIFont.italicSystemFont(ofSize: 14)
         return button
     }()
 
-    private let coinBannerView: UIView = {
-        let view = UIView()
-        view.isUserInteractionEnabled = true
-        return view
-    }()
-
-    private let coinBgImageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.image = JC_ProfileHeaderView.resizableCoinBgImage()
-        imageView.contentMode = .scaleToFill
-        return imageView
+    private let coinBgImageView: UIButton = {
+        let v = UIButton(type: .custom)
+        v.setBackgroundImage(UIImage(named: "profile_coinBg"), for: .normal)
+        return v
     }()
 
     private let coinIconImageView = makeImageView(named: "profile_coins")
@@ -299,7 +289,7 @@ class JC_ProfileHeaderView: UIView {
     private let coinTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "Get coins"
-        label.font = UIFont(name: "Helvetica-BoldOblique", size: 18) ?? UIFont.italicSystemFont(ofSize: 18)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 22) //?? UIFont.italicSystemFont(ofSize: 18)
         label.textColor = UIColor(hex: "#333333")
         return label
     }()

@@ -26,7 +26,34 @@ class JC_ProfileVC: JC_BaseVC {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        setupHeaderCallback()
         setupTableView()
+    }
+
+    private func setupHeaderCallback() {
+        headerView.onSettingTapped = { [weak self] in
+            guard let self else { return }
+            let settingVC = JC_SettingVC()
+            settingVC.hidesBottomBarWhenPushed = true
+            (self.tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(true)
+            self.navigationController?.pushViewController(settingVC, animated: true)
+        }
+
+        headerView.onEditProfileTapped = { [weak self] in
+            guard let self else { return }
+            let editVC = JC_EditVC()
+            editVC.hidesBottomBarWhenPushed = true
+            (self.tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(true)
+            self.navigationController?.pushViewController(editVC, animated: true)
+        }
+
+        headerView.onCoinsTapped = { [weak self] in
+            guard let self else { return }
+            let coinsVC = JC_CoinsVC()
+            coinsVC.hidesBottomBarWhenPushed = true
+            (self.tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(true)
+            self.navigationController?.pushViewController(coinsVC, animated: true)
+        }
     }
 
     override func viewDidLayoutSubviews() {

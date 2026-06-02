@@ -159,10 +159,15 @@ class JC_TabbarVC: UITabBarController {
     }
 
     private func updateContentInset() {
-        let bottomInset = customTabBar.frame.height + 12
+        let bottomInset = customTabBar.isHidden ? 0 : customTabBar.frame.height + 12
         viewControllers?.forEach { controller in
             controller.additionalSafeAreaInsets.bottom = bottomInset
         }
+    }
+
+    func setCustomTabBarHidden(_ hidden: Bool) {
+        customTabBar.isHidden = hidden
+        updateContentInset()
     }
 
 }

@@ -87,6 +87,6 @@ func makeAssetButton(imageName: String) -> UIButton {
 func makeImageView(named name: String) -> UIImageView {
     let imageView = UIImageView()
     imageView.image = UIImage(named: name)
-    imageView.contentMode = .scaleAspectFit
+    imageView.contentMode = .scaleAspectFill
     return imageView
 }
