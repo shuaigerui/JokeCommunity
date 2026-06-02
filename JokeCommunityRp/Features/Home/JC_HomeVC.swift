@@ -20,6 +20,7 @@ class JC_HomeVC: JC_BaseVC {
         configureAudioSession()
         items = JC_HomeVideoProvider.loadItems()
         setupCollectionView()
+        setupTopBar()
     }
 
     override func viewDidLayoutSubviews() {
@@ -56,6 +57,63 @@ class JC_HomeVC: JC_BaseVC {
             make.edges.equalToSuperview()
         }
     }
+
+    private func setupTopBar() {
+        view.addSubview(topBarView)
+        topBarView.addSubview(titleImageView)
+        topBarView.addSubview(coinImageView)
+        topBarView.addSubview(addButton)
+
+        topBarView.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
+            make.leading.trailing.equalToSuperview().inset(20)
+            make.height.equalTo(44)
+        }
+
+        titleImageView.snp.makeConstraints { make in
+            make.leading.centerY.equalToSuperview()
+            make.height.equalTo(28)
+        }
+
+        addButton.snp.makeConstraints { make in
+            make.trailing.centerY.equalToSuperview()
+            make.width.height.equalTo(44)
+        }
+
+        coinImageView.snp.makeConstraints { make in
+            make.trailing.equalTo(addButton.snp.leading).offset(-12)
+            make.centerY.equalToSuperview()
+            make.width.height.equalTo(36)
+        }
+
+        addButton.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
+    }
+
+    @objc private func addButtonTapped() {
+        pauseCurrentVideo()
+        showPostSheet()
+    }
+
+    private func showPostSheet() {
+        guard postView == nil else { return }
+
+        (tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(true)
+
+        let sheet = JC_HomePostView()
+        sheet.hostViewController = self
+        sheet.onDismiss = { [weak self] in
+            self?.postView = nil
+            (self?.tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(false)
+            self?.playVideoInVisibleCell()
+        }
+        sheet.onRelease = { text, media in
+            _ = (text, media)
+        }
+        postView = sheet
+        sheet.present(in: view, animated: true)
+    }
+
+    private var postView: JC_HomePostView?
 
     private func playVideoInVisibleCell() {
         let centerPoint = CGPoint(
@@ -102,6 +160,31 @@ class JC_HomeVC: JC_BaseVC {
         collectionView.delegate = self
         collectionView.register(JC_HomeVideoCell.self, forCellWithReuseIdentifier: JC_HomeVideoCell.reuseIdentifier)
         return collectionView
+    }()
+
+    private let topBarView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = true
+        return view
+    }()
+
+    private let titleImageView: UIImageView = {
+        let imageView = makeImageView(named: "home_title")
+        imageView.contentMode = .scaleAspectFit
+        return imageView
+    }()
+
+    private let coinImageView: UIImageView = {
+        let imageView = makeImageView(named: "home_coin")
+        imageView.contentMode = .scaleAspectFit
+        return imageView
+    }()
+
+    private let addButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "home_add"), for: .normal)
+        return button
     }()
 
 }

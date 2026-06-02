@@ -22,13 +22,6 @@ class JC_SettingVC: JC_BaseVC {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if isMovingFromParent {
-            (tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(false)
-        }
-    }
-
     private func setupUI() {
         view.addSubview(backButton)
         view.addSubview(menuStackView)
@@ -63,7 +56,6 @@ class JC_SettingVC: JC_BaseVC {
 
     @objc private func clickBlacklist() {
         let blacklistVC = JC_BlackListVC()
-        blacklistVC.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(blacklistVC, animated: true)
     }
 

@@ -87,11 +87,6 @@ class JC_HomeVideoCell: UICollectionViewCell {
     private func setupUI() {
         contentView.backgroundColor = .black
 
-        contentView.addSubview(topBarView)
-        topBarView.addSubview(titleImageView)
-        topBarView.addSubview(coinImageView)
-        topBarView.addSubview(addButton)
-
         contentView.addSubview(rightActionView)
         rightActionView.addSubview(avatarContainer)
         avatarContainer.addSubview(avatarImageView)
@@ -104,28 +99,6 @@ class JC_HomeVideoCell: UICollectionViewCell {
 
         contentView.addSubview(jokeContainerView)
         jokeContainerView.addSubview(jokeLabel)
-
-        topBarView.snp.makeConstraints { make in
-            make.top.equalTo(contentView.safeAreaLayoutGuide).offset(8)
-            make.leading.trailing.equalToSuperview().inset(20)
-            make.height.equalTo(44)
-        }
-
-        titleImageView.snp.makeConstraints { make in
-            make.leading.centerY.equalToSuperview()
-            make.height.equalTo(28)
-        }
-
-        addButton.snp.makeConstraints { make in
-            make.trailing.centerY.equalToSuperview()
-            make.width.height.equalTo(44)
-        }
-
-        coinImageView.snp.makeConstraints { make in
-            make.trailing.equalTo(addButton.snp.leading).offset(-12)
-            make.centerY.equalToSuperview()
-            make.width.height.equalTo(36)
-        }
 
         rightActionView.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-16)
@@ -185,18 +158,6 @@ class JC_HomeVideoCell: UICollectionViewCell {
             make.edges.equalToSuperview().inset(UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14))
         }
     }
-
-    private let topBarView = UIView()
-
-    private let titleImageView = makeImageView(named: "home_title")
-
-    private let coinImageView = makeImageView(named: "home_coin")
-
-    private let addButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "home_add")?.withRenderingMode(.alwaysOriginal), for: .normal)
-        return button
-    }()
 
     private let rightActionView = UIView()
 

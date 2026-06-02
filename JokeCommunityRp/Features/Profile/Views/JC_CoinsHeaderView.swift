@@ -9,7 +9,7 @@ import UIKit
 
 class JC_CoinsHeaderView: UIView {
 
-    static let headerHeight: CGFloat = 220
+    static let headerHeight: CGFloat = 250
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -27,9 +27,12 @@ class JC_CoinsHeaderView: UIView {
 
     private func setupUI() {
         backgroundColor = .clear
+        clipsToBounds = true
 
         addSubview(cardView)
         addSubview(titleBannerImageView)
+        titleBannerImageView.addSubview(coinImageView)
+        titleBannerImageView.addSubview(titleView)
         cardView.addSubview(balanceLabel)
         cardView.addSubview(firstTaskView)
         cardView.addSubview(secondTaskView)
@@ -40,31 +43,45 @@ class JC_CoinsHeaderView: UIView {
         secondTaskView.addSubview(secondTaskLabel)
 
         cardView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(36)
-            make.leading.trailing.equalToSuperview().inset(30)
-            make.bottom.equalToSuperview()
+            make.top.equalToSuperview().offset(65)
+            make.leading.trailing.equalToSuperview().inset(20)
+            make.bottom.equalToSuperview().offset(-15)
+            make.height.equalTo(170)
         }
 
         titleBannerImageView.snp.makeConstraints { make in
-            make.top.equalTo(cardView.snp.top).offset(-28)
-            make.centerX.equalTo(cardView)
-            make.height.equalTo(56)
-            make.width.lessThanOrEqualToSuperview().offset(-40)
+            make.top.equalToSuperview()
+            make.leading.equalToSuperview().offset(19)
+            make.height.equalTo(102)
+            make.width.equalTo(284)
+        }
+        
+        coinImageView.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(39)
+            make.leading.equalToSuperview().offset(46)
+            make.height.width.equalTo(33)
+        }
+        
+        titleView.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(29)
+            make.leading.equalTo(coinImageView.snp.trailing).offset(12)
+            make.height.equalTo(40)
+            make.width.equalTo(133)
         }
 
         balanceLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(40)
-            make.leading.trailing.equalToSuperview().inset(24)
+            make.top.equalToSuperview().offset(28)
+            make.leading.equalToSuperview().offset(33)
         }
 
         firstTaskView.snp.makeConstraints { make in
-            make.top.equalTo(balanceLabel.snp.bottom).offset(20)
-            make.leading.trailing.equalToSuperview().inset(24)
+            make.top.equalTo(balanceLabel.snp.bottom).offset(15)
+            make.leading.equalToSuperview().offset(33)
         }
 
         firstLikeImageView.snp.makeConstraints { make in
             make.leading.top.bottom.equalToSuperview()
-            make.size.equalTo(18)
+            make.size.equalTo(27)
         }
 
         firstTaskLabel.snp.makeConstraints { make in
@@ -74,14 +91,13 @@ class JC_CoinsHeaderView: UIView {
         }
 
         secondTaskView.snp.makeConstraints { make in
-            make.top.equalTo(firstTaskView.snp.bottom).offset(12)
-            make.leading.trailing.equalToSuperview().inset(24)
-            make.bottom.equalToSuperview().offset(-24)
+            make.top.equalTo(firstTaskView.snp.bottom).offset(15)
+            make.leading.equalToSuperview().offset(33)
         }
 
         secondLikeImageView.snp.makeConstraints { make in
             make.leading.top.bottom.equalToSuperview()
-            make.size.equalTo(18)
+            make.size.equalTo(27)
         }
 
         secondTaskLabel.snp.makeConstraints { make in
@@ -96,12 +112,26 @@ class JC_CoinsHeaderView: UIView {
         view.backgroundColor = .white
         view.layer.cornerRadius = 24
         view.layer.masksToBounds = true
+        view.layer.borderWidth = 1
+        view.layer.borderColor = UIColor(hex: "#707070").cgColor
         return view
     }()
 
     private let titleBannerImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "coin_titleBg"))
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .scaleAspectFill
+        return imageView
+    }()
+    
+    private let coinImageView: UIImageView = {
+        let imageView = UIImageView(image: UIImage(named: "coin_icon"))
+        imageView.contentMode = .scaleAspectFill
+        return imageView
+    }()
+    
+    private let titleView: UIImageView = {
+        let imageView = UIImageView(image: UIImage(named: "coin_title"))
+        imageView.contentMode = .scaleAspectFill
         return imageView
     }()
 

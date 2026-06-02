@@ -16,13 +16,6 @@ class JC_EditVC: JC_BaseVC {
         prefillContent()
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if isMovingFromParent {
-            (tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(false)
-        }
-    }
-
     private func setupUI() {
         view.addSubview(backButton)
         view.addSubview(titleLabel)

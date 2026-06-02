@@ -20,13 +20,6 @@ class JC_CoinsVC: JC_BaseVC {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if isMovingFromParent {
-            (tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(false)
-        }
-    }
-
     private func setupUI() {
         view.addSubview(backButton)
         view.addSubview(headerView)
@@ -39,13 +32,13 @@ class JC_CoinsVC: JC_BaseVC {
         }
 
         headerView.snp.makeConstraints { make in
-            make.top.equalTo(backButton.snp.bottom).offset(16)
+            make.top.equalTo(backButton.snp.bottom)
             make.leading.trailing.equalToSuperview()
             make.height.equalTo(JC_CoinsHeaderView.headerHeight)
         }
 
         collectionView.snp.makeConstraints { make in
-            make.top.equalTo(headerView.snp.bottom).offset(20)
+            make.top.equalTo(headerView.snp.bottom).offset(24)
             make.leading.trailing.equalToSuperview().inset(30)
             make.bottom.equalTo(view.safeAreaLayoutGuide)
         }
@@ -73,7 +66,7 @@ class JC_CoinsVC: JC_BaseVC {
         let layout = UICollectionViewFlowLayout()
         layout.minimumInteritemSpacing = 12
         layout.minimumLineSpacing = 12
-        layout.sectionInset = .zero
+        layout.sectionInset = UIEdgeInsets(top: 4, left: 0, bottom: 0, right: 0)
 
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .clear
@@ -118,7 +111,7 @@ extension JC_CoinsVC: UICollectionViewDataSource, UICollectionViewDelegateFlowLa
         let columns: CGFloat = 3
         let totalSpacing = spacing * (columns - 1)
         let width = (collectionView.bounds.width - totalSpacing) / columns
-        return CGSize(width: floor(width), height: width * 1.08)
+        return CGSize(width: floor(width), height: 135)
     }
 
 }

@@ -128,19 +128,35 @@ class JC_TabbarVC: UITabBarController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        delegate = self
         setupViewControllers()
         setupCustomTabBar()
         selectedIndex = 0
         customTabBar.selectItem(at: 0, notify: false)
+        updateCustomTabBarVisibility()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        hideSystemTabBar()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        hideSystemTabBar()
         updateContentInset()
     }
 
+    private func hideSystemTabBar() {
+        tabBar.isHidden = true
+    }
+
     private func setupViewControllers() {
-        viewControllers = DS_TabbarType.allCases.map { $0.controller }
+        viewControllers = DS_TabbarType.allCases.map { type in
+            let navigationController = type.controller as! UINavigationController
+            navigationController.delegate = self
+            return navigationController
+        }
     }
 
     private func setupCustomTabBar() {
@@ -168,6 +184,40 @@ class JC_TabbarVC: UITabBarController {
     func setCustomTabBarHidden(_ hidden: Bool) {
         customTabBar.isHidden = hidden
         updateContentInset()
+    }
+
+    private func updateCustomTabBarVisibility() {
+        guard let navigationController = selectedViewController as? UINavigationController else {
+            setCustomTabBarHidden(false)
+            return
+        }
+        let shouldHide = navigationController.viewControllers.count > 1
+        setCustomTabBarHidden(shouldHide)
+    }
+
+}
+
+extension JC_TabbarVC: UITabBarControllerDelegate {
+
+    func tabBarController(_ tabBarController: UITabBarController, didSelect viewController: UIViewController) {
+        hideSystemTabBar()
+        updateCustomTabBarVisibility()
+    }
+
+}
+
+extension JC_TabbarVC: UINavigationControllerDelegate {
+
+    func navigationController(
+        _ navigationController: UINavigationController,
+        willShow viewController: UIViewController,
+        animated: Bool
+    ) {
+        hideSystemTabBar()
+        guard navigationController === selectedViewController else { return }
+
+        let isRoot = viewController === navigationController.viewControllers.first
+        setCustomTabBarHidden(!isRoot)
     }
 
 }

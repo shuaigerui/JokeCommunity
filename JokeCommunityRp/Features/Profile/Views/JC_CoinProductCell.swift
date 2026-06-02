@@ -26,6 +26,9 @@ class JC_CoinProductCell: UICollectionViewCell {
     }
 
     private func setupUI() {
+        contentView.clipsToBounds = false
+        clipsToBounds = false
+
         contentView.addSubview(backgroundImageView)
         contentView.addSubview(coinIconImageView)
         contentView.addSubview(coinsLabel)
@@ -36,39 +39,44 @@ class JC_CoinProductCell: UICollectionViewCell {
         }
 
         coinIconImageView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(14)
+            make.top.equalToSuperview().offset(22)
             make.centerX.equalToSuperview()
-            make.size.equalTo(28)
+            make.size.equalTo(33)
         }
 
         coinsLabel.snp.makeConstraints { make in
-            make.top.equalTo(coinIconImageView.snp.bottom).offset(8)
+            make.top.equalTo(coinIconImageView.snp.bottom)
             make.centerX.equalToSuperview()
+            make.height.equalTo(40)
         }
 
         priceLabel.snp.makeConstraints { make in
-            make.top.equalTo(coinsLabel.snp.bottom).offset(4)
+            make.top.equalTo(coinsLabel.snp.bottom)
             make.centerX.equalToSuperview()
             make.bottom.lessThanOrEqualToSuperview().offset(-12)
+            make.height.equalTo(20)
         }
     }
 
     private let backgroundImageView: UIImageView = {
         let imageView = UIImageView()
-        if let image = UIImage(named: "coin_bg") {
-            let cap = min(image.size.width, image.size.height) / 2
-            imageView.image = image.resizableImage(
-                withCapInsets: UIEdgeInsets(top: cap, left: cap, bottom: cap, right: cap),
-                resizingMode: .stretch
-            )
-        }
+        imageView.image = JC_CoinProductCell.resizableCoinBackground()
         imageView.contentMode = .scaleToFill
         return imageView
     }()
 
+    private static func resizableCoinBackground() -> UIImage? {
+        guard let image = UIImage(named: "coin_bg") else { return nil }
+        let cap = max((min(image.size.width, image.size.height) - 2) / 2, 8)
+        return image.resizableImage(
+            withCapInsets: UIEdgeInsets(top: cap, left: cap, bottom: cap, right: cap),
+            resizingMode: .stretch
+        )
+    }
+
     private let coinIconImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "coin_icon"))
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .scaleAspectFill
         return imageView
     }()
 

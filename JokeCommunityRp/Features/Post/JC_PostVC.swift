@@ -199,8 +199,6 @@ extension JC_PostVC: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let detailVC = JC_PostDetailVC(post: currentPosts[indexPath.row])
-        detailVC.hidesBottomBarWhenPushed = true
-        (tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(true)
         navigationController?.pushViewController(detailVC, animated: true)
     }
 

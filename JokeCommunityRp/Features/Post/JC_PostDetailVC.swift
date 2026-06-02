@@ -33,13 +33,6 @@ class JC_PostDetailVC: JC_BaseVC {
         configureHeader()
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if isMovingFromParent {
-            (tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(false)
-        }
-    }
-
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateTableHeaderLayout()
