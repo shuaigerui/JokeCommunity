@@ -11,6 +11,8 @@ class JC_PostDetailHeaderView: UIView {
 
     static let headerHeight: CGFloat = 400
 
+    var onAvatarTapped: (() -> Void)?
+
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: Self.headerHeight))
         setupUI()
@@ -144,6 +146,15 @@ class JC_PostDetailHeaderView: UIView {
             make.bottom.equalToSuperview().offset(-20)
             make.height.equalTo(1)
         }
+
+        avatarImageView.isUserInteractionEnabled = true
+        avatarImageView.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(avatarTapped))
+        )
+    }
+
+    @objc private func avatarTapped() {
+        onAvatarTapped?()
     }
 
     private let avatarImageView: UIImageView = {
@@ -152,6 +163,7 @@ class JC_PostDetailHeaderView: UIView {
         imageView.clipsToBounds = true
         imageView.layer.cornerRadius = 34
         imageView.backgroundColor = UIColor(hex: "#E8E8E8")
+        imageView.isUserInteractionEnabled = true
         return imageView
     }()
 

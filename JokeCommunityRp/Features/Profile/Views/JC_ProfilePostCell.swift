@@ -11,6 +11,8 @@ class JC_ProfilePostCell: UITableViewCell {
 
     static let reuseIdentifier = "JC_ProfilePostCell"
 
+    private var usesFullWidthImageLayout = false
+
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
@@ -20,16 +22,56 @@ class JC_ProfilePostCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        applySplitImageLayout()
+        leftImageView.image = nil
+        rightImageView.image = nil
+    }
+
     func configure(with post: JC_ProfilePost) {
         contentLabel.text = post.content
         likeCountLabel.text = post.likeCount
 
+        if post.isVideo {
+            applyFullWidthImageLayout()
+            leftImageView.image = post.images.first ?? nil
+            rightImageView.isHidden = true
+            rightImageView.image = nil
+            return
+        }
+
+        applySplitImageLayout()
         leftImageView.image = post.images.first ?? nil
         let hasSecondImage = post.images.count > 1
         rightImageView.isHidden = !hasSecondImage
         rightImageView.image = hasSecondImage ? post.images[1] : nil
     }
 
+    private func applyFullWidthImageLayout() {
+        guard !usesFullWidthImageLayout else { return }
+        usesFullWidthImageLayout = true
+
+        leftImageView.snp.remakeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+    }
+
+    private func applySplitImageLayout() {
+        guard usesFullWidthImageLayout else { return }
+        usesFullWidthImageLayout = false
+
+        leftImageView.snp.remakeConstraints { make in
+            make.top.leading.bottom.equalToSuperview()
+            make.width.equalTo(rightImageView)
+        }
+
+        rightImageView.snp.remakeConstraints { make in
+            make.top.trailing.bottom.equalToSuperview()
+            make.leading.equalTo(leftImageView.snp.trailing).offset(12)
+            make.width.equalTo(leftImageView)
+        }
+    }
 
     private func setupUI() {
         selectionStyle = .none

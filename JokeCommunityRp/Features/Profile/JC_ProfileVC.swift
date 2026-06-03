@@ -11,23 +11,46 @@ class JC_ProfileVC: JC_BaseVC {
 
     private let headerView = JC_ProfileHeaderView()
 
-    private var posts: [JC_ProfilePost] = [
-        JC_ProfilePost(
-            content: "This is my first time sharing a joke, I .......",
-            images: [nil, nil],
-            likeCount: "100W"
-        ),
-        JC_ProfilePost(
-            content: "This is my first time sharing a joke, I .......",
-            images: [nil, nil],
-            likeCount: "100W"
-        )
-    ]
+    private var posts: [JC_ProfilePost] = []
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupHeaderCallback()
         setupTableView()
+        loadData()
+    }
+
+    private func loadData() {
+        let user = JC_CurrentUser.shared.user ?? JC_UserModel.current
+
+        headerView.configure(with: user)
+        posts = JC_UserData.posts(for: user.userId).map { makeProfilePost(from: $0) }
+        tableView.reloadData()
+        updateTableHeaderLayout()
+    }
+
+    private func makeProfilePost(from post: JC_PostModel) -> JC_ProfilePost {
+        switch post.media {
+        case .images(let list):
+            return JC_ProfilePost(
+                content: post.content,
+                images: list.map { Optional($0) },
+                likeCount: post.likeCount,
+                isVideo: false
+            )
+        case .video(let url):
+            return JC_ProfilePost(
+                content: post.content,
+                images: [videoThumbnail(url: url)],
+                likeCount: post.likeCount,
+                isVideo: true
+            )
+        }
     }
 
     private func setupHeaderCallback() {

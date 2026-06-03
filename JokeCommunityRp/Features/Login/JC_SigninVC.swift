@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Toast_Swift
 
 enum JC_SignPageType {
     case signup
@@ -157,11 +158,21 @@ class JC_SigninVC: JC_BaseVC {
     
     @objc private func clickContinue() {
         view.endEditing(true)
+        let email = emailTextField.text ?? ""
+        let password = passwordTextField.text ?? ""
+
         switch pageType {
-            case .signup:
-            navigationController?.pushViewController(JC_SetupInfoVC(), animated: true)
-            case .login:
-            view.window?.rootViewController = JC_TabbarVC()
+        case .signup:
+            navigationController?.pushViewController(
+                JC_SetupInfoVC(email: email, password: password),
+                animated: true
+            )
+        case .login:
+            if JC_CurrentUser.shared.login(email: email, password: password) {
+                JC_CurrentUser.shared.showMainInterface(in: view.window)
+            } else {
+                view.makeToast("Invalid email or password")
+            }
         }
     }
 

@@ -86,7 +86,9 @@ class JC_PersonVC: JC_BaseVC {
         }
 
         tableView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+            make.leading.trailing.equalToSuperview()
+            make.top.equalTo(backButton.snp.bottom).offset(15)
+            make.bottom.equalTo(view.safeAreaLayoutGuide)
         }
 
         tableView.dataSource = self
@@ -94,7 +96,6 @@ class JC_PersonVC: JC_BaseVC {
         tableView.register(JC_PersonPostCell.self, forCellReuseIdentifier: JC_PersonPostCell.reuseIdentifier)
         tableView.tableHeaderView = headerView
         tableView.contentInset.bottom = 88
-        tableView.scrollIndicatorInsets.bottom = 88
         updateTableHeaderLayout()
     }
 
@@ -151,26 +152,23 @@ class JC_PersonVC: JC_BaseVC {
 
     private let infoButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.backgroundColor = .white
-        button.layer.cornerRadius = 14
-        button.layer.masksToBounds = true
-        button.setImage(UIImage(named: "profile_more"), for: .normal)
+        button.setImage(UIImage(named: "detail_report"), for: .normal)
         return button
     }()
 
     private let bottomBarView = UIView()
 
-    private lazy var chatButton: UIButton = makeActionButton(
-        title: "CHAT",
-        backgroundColor: UIColor(hex: "#8DB38B").withAlphaComponent(0.92),
-        iconName: "tab_chat"
-    )
+    private lazy var chatButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "person_chat"), for: .normal)
+        return button
+    }()
 
-    private lazy var callButton: UIButton = makeActionButton(
-        title: "CALL",
-        backgroundColor: UIColor(hex: "#7EC8E3").withAlphaComponent(0.92),
-        systemIconName: "video.fill"
-    )
+    private lazy var callButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "person_video"), for: .normal)
+        return button
+    }()
 
     private let tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -185,50 +183,6 @@ class JC_PersonVC: JC_BaseVC {
         }
         return tableView
     }()
-
-    private func makeActionButton(
-        title: String,
-        backgroundColor: UIColor,
-        iconName: String? = nil,
-        systemIconName: String? = nil
-    ) -> UIButton {
-        let button = UIButton(type: .custom)
-        button.backgroundColor = backgroundColor
-        button.layer.cornerRadius = 20
-        button.layer.masksToBounds = true
-
-        let stackView = UIStackView()
-        stackView.axis = .horizontal
-        stackView.alignment = .center
-        stackView.spacing = 8
-        stackView.isUserInteractionEnabled = false
-
-        let iconView = UIImageView()
-        if let iconName, let image = UIImage(named: iconName) {
-            iconView.image = image.withRenderingMode(.alwaysTemplate)
-        } else if let systemIconName {
-            let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
-            iconView.image = UIImage(systemName: systemIconName, withConfiguration: config)
-        }
-        iconView.tintColor = .white
-        iconView.contentMode = .scaleAspectFit
-        iconView.snp.makeConstraints { make in
-            make.size.equalTo(22)
-        }
-
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.font = UIFont.boldSystemFont(ofSize: 18)
-        titleLabel.textColor = .white
-
-        stackView.addArrangedSubview(iconView)
-        stackView.addArrangedSubview(titleLabel)
-        button.addSubview(stackView)
-        stackView.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-        }
-        return button
-    }
 
 }
 

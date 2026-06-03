@@ -12,15 +12,21 @@ class JC_HomeVC: JC_BaseVC {
 
     private var items: [JC_HomeVideoItem] = []
     private var currentPlayingIndexPath: IndexPath?
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         bgView.isHidden = true
         view.backgroundColor = .black
         configureAudioSession()
-        items = JC_HomeVideoProvider.loadItems()
         setupCollectionView()
         setupTopBar()
+        loadData()
     }
 
     override func viewDidLayoutSubviews() {
@@ -31,6 +37,18 @@ class JC_HomeVC: JC_BaseVC {
            collectionView.bounds.height > 0 {
             layout.itemSize = collectionView.bounds.size
             layout.invalidateLayout()
+        }
+    }
+    
+    private func loadData() {
+        pauseCurrentVideo()
+        items = JC_HomeVideoProvider.loadItems()
+        collectionView.reloadData()
+        currentPlayingIndexPath = nil
+
+        guard isViewLoaded, view.window != nil else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.playVideoInVisibleCell()
         }
     }
 

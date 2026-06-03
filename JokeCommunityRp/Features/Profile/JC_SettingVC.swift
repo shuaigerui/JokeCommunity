@@ -20,6 +20,7 @@ class JC_SettingVC: JC_BaseVC {
         super.viewDidLoad()
         setupUI()
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
+        logoutButton.addTarget(self, action: #selector(clickLogout), for: .touchUpInside)
     }
 
     private func setupUI() {
@@ -57,6 +58,11 @@ class JC_SettingVC: JC_BaseVC {
     @objc private func clickBlacklist() {
         let blacklistVC = JC_BlackListVC()
         navigationController?.pushViewController(blacklistVC, animated: true)
+    }
+
+    @objc private func clickLogout() {
+        JC_CurrentUser.shared.logout()
+        JC_CurrentUser.shared.showWelcomeInterface(in: view.window)
     }
 
     @objc private func clickBack() {

@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import AVFoundation
 
 func makeImageButton(imageName: String, contentInsets: UIEdgeInsets) -> UIButton {
     let button = UIButton(type: .custom)
@@ -89,4 +90,13 @@ func makeImageView(named name: String) -> UIImageView {
     imageView.image = UIImage(named: name)
     imageView.contentMode = .scaleAspectFill
     return imageView
+}
+
+func videoThumbnail(url: URL) -> UIImage? {
+    let asset = AVAsset(url: url)
+    let generator = AVAssetImageGenerator(asset: asset)
+    generator.appliesPreferredTrackTransform = true
+    let time = CMTime(seconds: 0.1, preferredTimescale: 600)
+    guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else { return nil }
+    return UIImage(cgImage: cgImage)
 }

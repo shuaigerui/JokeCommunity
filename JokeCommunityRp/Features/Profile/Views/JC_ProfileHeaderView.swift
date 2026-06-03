@@ -18,18 +18,22 @@ class JC_ProfileHeaderView: UIView {
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: Self.headerHeight))
         setupUI()
-        configure(
-            name: "Angela",
-            age: "20",
-            bio: "This is my first time sharing a joke, I .......",
-            friends: "950",
-            likes: "999+",
-            avatar: nil
-        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(with user: JC_UserModel) {
+        configure(
+            name: user.nickname,
+            age: user.ageText,
+            bio: user.bio,
+            friends: user.friendCountText,
+            likes: user.likeCountText,
+            avatar: user.avatar
+        )
+        genderImageView.image = UIImage(named: user.gender.iconName)
     }
 
     func configure(name: String, age: String, bio: String, friends: String, likes: String, avatar: UIImage?) {

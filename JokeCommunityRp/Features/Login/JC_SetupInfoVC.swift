@@ -6,8 +6,22 @@
 //
 
 import UIKit
+import Toast_Swift
 
 class JC_SetupInfoVC: JC_BaseVC {
+
+    private let email: String
+    private let password: String
+
+    init(email: String, password: String) {
+        self.email = email
+        self.password = password
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -23,6 +37,7 @@ class JC_SetupInfoVC: JC_BaseVC {
         view.addSubview(backButton)
         view.addSubview(titleImageView)
         view.addSubview(avatarContainer)
+        avatarContainer.addSubview(avatarImageView)
         avatarContainer.addSubview(cameraImageView)
         view.addSubview(nicknameTitleImageView)
         view.addSubview(nicknameFieldContainer)
@@ -55,6 +70,10 @@ class JC_SetupInfoVC: JC_BaseVC {
             make.top.equalTo(titleImageView.snp.bottom).offset(60)
             make.centerX.equalToSuperview()
             make.width.height.equalTo(avatarSide)
+        }
+
+        avatarImageView.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
         }
 
         cameraImageView.snp.makeConstraints { make in
@@ -103,10 +122,12 @@ class JC_SetupInfoVC: JC_BaseVC {
 
         avatarContainer.layer.cornerRadius = avatarSide / 2
         footerTextImageView.isHidden = footerTextImageView.image == nil
+        updateAvatarPlaceholder()
     }
 
     private func bindActions() {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
+        continueButton.addTarget(self, action: #selector(clickContinue), for: .touchUpInside)
         avatarContainer.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(clickAvatar)))
         footerContainer.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(clickFooter)))
         nicknameTextField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
@@ -117,6 +138,27 @@ class JC_SetupInfoVC: JC_BaseVC {
     }
 
     @objc private func clickAvatar() {
+        let picker = UIImagePickerController()
+        picker.sourceType = .photoLibrary
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    @objc private func clickContinue() {
+        view.endEditing(true)
+        let nickname = nicknameTextField.text ?? ""
+        guard !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            view.makeToast("Please enter a nickname")
+            return
+        }
+
+        JC_CurrentUser.shared.loginWithRegistration(
+            email: email,
+            password: password,
+            nickname: nickname,
+            avatar: avatarImageView.image
+        )
+        JC_CurrentUser.shared.showMainInterface(in: view.window)
     }
 
     @objc private func clickFooter() {
@@ -125,6 +167,10 @@ class JC_SetupInfoVC: JC_BaseVC {
 
     @objc private func textFieldDidChange() {
         nicknamePlaceholderView.isHidden = !(nicknameTextField.text?.isEmpty ?? true)
+    }
+
+    private func updateAvatarPlaceholder() {
+        cameraImageView.isHidden = avatarImageView.image != nil
     }
 
     private let backButton: UIButton = {
@@ -148,6 +194,13 @@ class JC_SetupInfoVC: JC_BaseVC {
         return view
     }()
 
+    private let avatarImageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        return imageView
+    }()
+
     private let cameraImageView = makeImageView(named: "info_camera")
 
     private let nicknameTitleImageView = makeImageView(named: "info_nickname")
@@ -168,5 +221,24 @@ class JC_SetupInfoVC: JC_BaseVC {
     private let footerTextImageView = makeImageView(named: "sign_have")
 
     private let footerActionImageView = makeImageView(named: "sign_login")
+
+}
+
+extension JC_SetupInfoVC: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
+    }
+
+    func imagePickerController(
+        _ picker: UIImagePickerController,
+        didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+    ) {
+        picker.dismiss(animated: true)
+        if let image = info[.originalImage] as? UIImage {
+            avatarImageView.image = image
+            updateAvatarPlaceholder()
+        }
+    }
 
 }

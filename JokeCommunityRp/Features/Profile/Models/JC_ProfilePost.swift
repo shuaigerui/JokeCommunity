@@ -11,4 +11,5 @@ struct JC_ProfilePost {
     let content: String
     let images: [UIImage?]
     let likeCount: String
+    let isVideo: Bool
 }

@@ -79,6 +79,11 @@ class JC_PostDetailVC: JC_BaseVC {
         commentInputView.onSendTapped = { [weak self] text in
             self?.appendComment(text)
         }
+        headerView.onAvatarTapped = { [weak self] in
+            guard let self else { return }
+            let personVC = JC_PersonVC(userName: post.userName)
+            navigationController?.pushViewController(personVC, animated: true)
+        }
     }
 
     private func configureHeader() {

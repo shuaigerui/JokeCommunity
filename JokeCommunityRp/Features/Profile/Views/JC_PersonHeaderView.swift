@@ -9,7 +9,7 @@ import UIKit
 
 class JC_PersonHeaderView: UIView {
 
-    static let headerHeight: CGFloat = 280
+    static let headerHeight: CGFloat = 175
 
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: Self.headerHeight))
@@ -54,7 +54,7 @@ class JC_PersonHeaderView: UIView {
         addSubview(bioLabel)
 
         avatarImageView.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(72)
+            make.top.equalToSuperview().offset(25)
             make.leading.equalToSuperview().offset(28)
             make.size.equalTo(68)
         }
@@ -154,9 +154,8 @@ class JC_PersonHeaderView: UIView {
 
     private let bioLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.italicSystemFont(ofSize: 15)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 16)
         label.textColor = UIColor(hex: "#333333")
-        label.numberOfLines = 2
         return label
     }()
 

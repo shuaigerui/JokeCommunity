@@ -16,6 +16,7 @@ class JC_WelcomeVC: JC_BaseVC {
         
         signupButton.addTarget(self, action: #selector(clickSignupButton), for: .touchUpInside)
         logInButton.addTarget(self, action: #selector(clickLoginButton), for: .touchUpInside)
+        appleButton.addTarget(self, action: #selector(clickAppleButton), for: .touchUpInside)
     }
 
     private func setupUI() {
@@ -64,6 +65,11 @@ class JC_WelcomeVC: JC_BaseVC {
 
     @objc private func clickLoginButton() {
         navigationController?.pushViewController(JC_SigninVC(pageType: .login), animated: true)
+    }
+
+    @objc private func clickAppleButton() {
+        JC_CurrentUser.shared.loginWithApple()
+        JC_CurrentUser.shared.showMainInterface(in: view.window)
     }
 
     private let topImageView: UIImageView = {

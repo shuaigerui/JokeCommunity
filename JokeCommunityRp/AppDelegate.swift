@@ -29,15 +29,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func initializeWindow() {
         window = UIWindow(frame: UIScreen.main.bounds)
-//        let launchVC = DS_LaunchVC()
-//        launchVC.completion = {
-//            if DS_CurrentUser.shared.isLoggedIn {
-//                self.window?.rootViewController = DS_TabbarVC()
-//            } else {
-//                self.window?.rootViewController = UINavigationController(rootViewController: DS_WelcomeVC())
-//            }
-//        }
-        window?.rootViewController = JC_TabbarVC()//UINavigationController(rootViewController: JC_WelcomeVC())
+        JC_CurrentUser.shared.restoreSession()
+        if JC_CurrentUser.shared.isLoggedIn {
+            JC_CurrentUser.shared.showMainInterface(in: window)
+        } else {
+            JC_CurrentUser.shared.showWelcomeInterface(in: window)
+        }
         window?.makeKeyAndVisible()
     }
 

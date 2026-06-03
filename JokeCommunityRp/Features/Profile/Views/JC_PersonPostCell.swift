@@ -112,14 +112,14 @@ class JC_PersonPostCell: UITableViewCell {
 
     private let dateLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.boldSystemFont(ofSize: 16)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 16)
         label.textColor = UIColor(hex: "#333333")
         return label
     }()
 
     private let contentLabel: UILabel = {
         let label = UILabel()
-        label.font = UIFont.italicSystemFont(ofSize: 16)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 16)
         label.textColor = UIColor(hex: "#333333")
         label.numberOfLines = 0
         return label
