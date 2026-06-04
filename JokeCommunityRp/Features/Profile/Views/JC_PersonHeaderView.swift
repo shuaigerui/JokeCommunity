@@ -19,6 +19,7 @@ class JC_PersonHeaderView: UIView {
             age: "20",
             bio: "This is my first time sharing a joke, I .......",
             avatar: nil,
+            gender: .female,
             showAddFriend: true
         )
     }
@@ -32,12 +33,14 @@ class JC_PersonHeaderView: UIView {
         age: String,
         bio: String,
         avatar: UIImage?,
+        gender: JC_UserGender,
         showAddFriend: Bool
     ) {
         nameLabel.text = name
         ageLabel.text = age
         bioLabel.text = bio
         avatarImageView.image = avatar
+        genderImageView.image = UIImage(named: gender.iconName)
         addFriendButton.isHidden = !showAddFriend
     }
 

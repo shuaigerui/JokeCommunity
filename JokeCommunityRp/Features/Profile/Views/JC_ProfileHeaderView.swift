@@ -253,7 +253,7 @@ class JC_ProfileHeaderView: UIView {
     private let friendsTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "friend"
-        label.font = UIFont.italicSystemFont(ofSize: 20)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 20)
         label.textColor = .black
         return label
     }()
@@ -268,7 +268,7 @@ class JC_ProfileHeaderView: UIView {
     private let likesTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "like"
-        label.font = UIFont.italicSystemFont(ofSize: 20)
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 20)
         label.textColor = .black
         return label
     }()

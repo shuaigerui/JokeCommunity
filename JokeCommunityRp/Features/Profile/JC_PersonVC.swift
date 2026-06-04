@@ -6,47 +6,143 @@
 //
 
 import UIKit
+import Toast_Swift
 
 class JC_PersonVC: JC_BaseVC {
 
-    private let userName: String
+    private let userId: String
 
     private let headerView = JC_PersonHeaderView()
 
-    private var posts: [JC_PersonPost] = [
-        JC_PersonPost(
-            date: "2026.03.05",
-            content: "This is my first time sharing a joke, I .......",
-            images: [nil, nil],
-            likeCount: "100W"
-        ),
-        JC_PersonPost(
-            date: "2026.03.05",
-            content: "This is my first time sharing a joke, I .......",
-            images: [nil, nil],
-            likeCount: "100W"
-        )
-    ]
+    private var posts: [JC_PersonPost] = []
+    private var postsObserver: NSObjectProtocol?
 
-    init(userName: String = "Angela") {
-        self.userName = userName
+    init(userId: String) {
+        self.userId = userId
         super.init(nibName: nil, bundle: nil)
+    }
+
+    convenience init(userName: String) {
+        let resolvedId = JC_UserData.allUsers.first { $0.nickname == userName }?.userId
+            ?? JC_CurrentUser.shared.user?.userId
+            ?? JC_UserData.testUser.userId
+        self.init(userId: resolvedId)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadData()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         bindActions()
-        configureHeader()
+        loadData()
+        if postsObserver == nil {
+            postsObserver = NotificationCenter.default.addObserver(
+                forName: .jcPostsDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadData()
+            }
+        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateTableHeaderLayout()
+    }
+
+    private func loadData() {
+        guard let user = resolvedUser() else { return }
+
+        let currentUser = JC_CurrentUser.shared.user ?? JC_UserModel.current
+        let isSelf = user.userId == currentUser.userId
+        let showAddFriend = !isSelf && !currentUser.isFollowing(userId: user.userId)
+
+        headerView.configure(
+            name: user.nickname,
+            age: user.ageText,
+            bio: user.bio,
+            avatar: user.avatar,
+            gender: user.gender,
+            showAddFriend: showAddFriend
+        )
+        posts = JC_UserData.posts(for: user.userId).map { makePersonPost(from: $0) }
+        tableView.reloadData()
+        updateTableHeaderLayout()
+    }
+
+    private func resolvedUser() -> JC_UserModel? {
+        JC_UserData.resolvedUser(userId: userId)
+    }
+
+    private var displayName: String {
+        resolvedUser()?.nickname ?? ""
+    }
+
+    private func makePersonPost(from post: JC_PostModel) -> JC_PersonPost {
+        switch post.media {
+        case .images(let list):
+            return JC_PersonPost(
+                postId: post.postId,
+                authorUserId: post.author.userId,
+                date: "2026.03.05",
+                content: post.content,
+                images: list.map { Optional($0) },
+                likeCount: post.likeCount,
+                isVideo: false
+            )
+        case .video(let url):
+            return JC_PersonPost(
+                postId: post.postId,
+                authorUserId: post.author.userId,
+                date: "2026.03.05",
+                content: post.content,
+                images: [videoThumbnail(url: url)],
+                likeCount: post.likeCount,
+                isVideo: true
+            )
+        }
+    }
+
+    private func handleMoreTapped(for post: JC_PersonPost) {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+
+        if post.authorUserId == currentUserId {
+            presentDeleteConfirmation(for: post)
+        } else {
+            pushReport(for: post)
+        }
+    }
+
+    private func presentDeleteConfirmation(for post: JC_PersonPost) {
+        let alert = UIAlertController(
+            title: "Delete Post",
+            message: "Are you sure you want to delete this post?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            JC_PostStore.shared.deletePost(postId: post.postId)
+            self?.loadData()
+        })
+        present(alert, animated: true)
+    }
+
+    private func pushReport(for post: JC_PersonPost) {
+        let reportVC = JC_ReportVC(postId: post.postId)
+        reportVC.onReportSubmitted = { [weak self] in
+            self?.view.makeToast("Report submitted successfully")
+            self?.loadData()
+        }
+        navigationController?.pushViewController(reportVC, animated: true)
     }
 
     private func setupUI() {
@@ -105,16 +201,6 @@ class JC_PersonVC: JC_BaseVC {
         callButton.addTarget(self, action: #selector(clickCall), for: .touchUpInside)
     }
 
-    private func configureHeader() {
-        headerView.configure(
-            name: userName,
-            age: "20",
-            bio: "This is my first time sharing a joke, I .......",
-            avatar: nil,
-            showAddFriend: true
-        )
-    }
-
     private func updateTableHeaderLayout() {
         guard tableView.tableHeaderView === headerView else { return }
 
@@ -131,7 +217,7 @@ class JC_PersonVC: JC_BaseVC {
     }
 
     @objc private func clickChat() {
-        let roomVC = JC_ChatRoomVC(roomTitle: userName.uppercased())
+        let roomVC = JC_ChatRoomVC(roomTitle: displayName.uppercased())
         navigationController?.pushViewController(roomVC, animated: true)
     }
 
@@ -199,7 +285,11 @@ extension JC_PersonVC: UITableViewDataSource, UITableViewDelegate {
         ) as? JC_PersonPostCell else {
             return UITableViewCell()
         }
-        cell.configure(with: posts[indexPath.row])
+        let personPost = posts[indexPath.row]
+        cell.configure(with: personPost)
+        cell.onMoreTapped = { [weak self] in
+            self?.handleMoreTapped(for: personPost)
+        }
         return cell
     }
 

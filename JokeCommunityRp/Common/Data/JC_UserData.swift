@@ -104,10 +104,56 @@ enum JC_UserData {
     ]
 
     static var allUsers: [JC_UserModel] {
-        [testUser] + localUsers
+        [resolvedTestUser] + localUsers
     }
 
-    static let posts: [JC_PostModel] = makePosts()
+    /// 5 位本地用户；若当前登录用户 id 相同则替换为 JC_CurrentUser 最新资料
+    static var displayUsers: [JC_UserModel] {
+        guard let current = JC_CurrentUser.shared.user else {
+            return localUsers
+        }
+        var users = localUsers
+        if let index = users.firstIndex(where: { $0.userId == current.userId }) {
+            users[index] = current
+        } else if current.userId == testUser.userId {
+            return [current] + users
+        } else {
+            users.insert(current, at: 0)
+        }
+        return users
+    }
+
+    private static var resolvedTestUser: JC_UserModel {
+        if let current = JC_CurrentUser.shared.user, current.userId == testUser.userId {
+            return current
+        }
+        return testUser
+    }
+
+    static func resolvedUser(userId: String) -> JC_UserModel? {
+        if let current = JC_CurrentUser.shared.user, current.userId == userId {
+            return current
+        }
+        if let local = localUsers.first(where: { $0.userId == userId }) {
+            return local
+        }
+        if userId == testUser.userId {
+            return JC_CurrentUser.shared.user ?? testUser
+        }
+        return nil
+    }
+
+    static func resolvedAuthor(for post: JC_PostModel) -> JC_UserModel {
+        resolvedUser(userId: post.author.userId) ?? post.author
+    }
+
+    static var posts: [JC_PostModel] {
+        JC_PostStore.shared.visiblePosts
+    }
+
+    static func makeBootstrapPosts() -> [JC_PostModel] {
+        makePosts()
+    }
 
     static var squarePosts: [JC_PostModel] {
         posts
@@ -123,7 +169,7 @@ enum JC_UserData {
     }
 
     static func user(userId: String) -> JC_UserModel? {
-        allUsers.first { $0.userId == userId }
+        resolvedUser(userId: userId)
     }
 
     static func posts(for userId: String) -> [JC_PostModel] {

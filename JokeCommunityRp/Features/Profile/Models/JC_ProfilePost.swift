@@ -8,6 +8,8 @@
 import UIKit
 
 struct JC_ProfilePost {
+    let postId: String
+    let authorUserId: String
     let content: String
     let images: [UIImage?]
     let likeCount: String

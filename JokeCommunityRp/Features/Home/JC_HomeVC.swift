@@ -7,12 +7,14 @@
 
 import UIKit
 import AVFoundation
+import Toast_Swift
 
 class JC_HomeVC: JC_BaseVC {
 
     private var items: [JC_HomeVideoItem] = []
     private var currentPlayingIndexPath: IndexPath?
-    
+    private var postsObserver: NSObjectProtocol?
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -27,6 +29,23 @@ class JC_HomeVC: JC_BaseVC {
         setupCollectionView()
         setupTopBar()
         loadData()
+        if postsObserver == nil {
+            let center = NotificationCenter.default
+            postsObserver = center.addObserver(
+                forName: .jcPostsDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadData()
+            }
+            center.addObserver(
+                forName: .jcUserProfileDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadData()
+            }
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -95,13 +114,14 @@ class JC_HomeVC: JC_BaseVC {
 
         addButton.snp.makeConstraints { make in
             make.trailing.centerY.equalToSuperview()
-            make.width.height.equalTo(44)
+            make.width.equalTo(69)
+            make.height.equalTo(29)
         }
 
         coinImageView.snp.makeConstraints { make in
-            make.trailing.equalTo(addButton.snp.leading).offset(-12)
+            make.trailing.equalTo(addButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
-            make.width.height.equalTo(36)
+            make.width.height.equalTo(33)
         }
 
         addButton.addTarget(self, action: #selector(addButtonTapped), for: .touchUpInside)
@@ -124,8 +144,15 @@ class JC_HomeVC: JC_BaseVC {
             (self?.tabBarController as? JC_TabbarVC)?.setCustomTabBarHidden(false)
             self?.playVideoInVisibleCell()
         }
-        sheet.onRelease = { text, media in
-            _ = (text, media)
+        sheet.onRelease = { [weak self] text, media in
+            guard let self else { return }
+            if JC_CurrentUser.shared.publishPost(content: text, media: media) {
+                self.view.makeToast("Posted successfully")
+                self.postView?.dismiss()
+                self.loadData()
+            } else {
+                self.view.makeToast("Failed to post. Please try again.")
+            }
         }
         postView = sheet
         sheet.present(in: view, animated: true)
@@ -195,7 +222,7 @@ class JC_HomeVC: JC_BaseVC {
 
     private let coinImageView: UIImageView = {
         let imageView = makeImageView(named: "home_coin")
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .scaleAspectFill
         return imageView
     }()
 
@@ -220,8 +247,71 @@ extension JC_HomeVC: UICollectionViewDataSource, UICollectionViewDelegate {
         ) as? JC_HomeVideoCell else {
             return UICollectionViewCell()
         }
-        cell.configure(with: items[indexPath.item])
+        let item = items[indexPath.item]
+        cell.configure(with: item)
+        cell.onLikeTapped = { [weak self] postId in
+            self?.handleLikeTapped(postId: postId)
+        }
+        cell.onReportTapped = { [weak self] postId in
+            self?.handleReportTapped(postId: postId)
+        }
         return cell
+    }
+
+    private func handleLikeTapped(postId: String) {
+        guard let result = JC_PostStore.shared.toggleLike(postId: postId),
+              let index = items.firstIndex(where: { $0.postId == postId }) else { return }
+
+        let old = items[index]
+        items[index] = JC_HomeVideoItem(
+            postId: old.postId,
+            authorUserId: old.authorUserId,
+            avatar: old.avatar,
+            videoURL: old.videoURL,
+            jokeText: old.jokeText,
+            likeCount: result.likeCount,
+            commentCount: old.commentCount,
+            isLiked: result.isLiked
+        )
+
+        let indexPath = IndexPath(item: index, section: 0)
+        if let cell = collectionView.cellForItem(at: indexPath) as? JC_HomeVideoCell {
+            cell.applyLikeState(isLiked: result.isLiked, likeCount: result.likeCount)
+        }
+    }
+
+    private func handleReportTapped(postId: String) {
+        guard let item = items.first(where: { $0.postId == postId }) else { return }
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+
+        if item.authorUserId == currentUserId {
+            presentDeleteConfirmation(for: postId)
+        } else {
+            pushReport(for: postId)
+        }
+    }
+
+    private func presentDeleteConfirmation(for postId: String) {
+        let alert = UIAlertController(
+            title: "Delete Post",
+            message: "Are you sure you want to delete this post?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            JC_PostStore.shared.deletePost(postId: postId)
+            self?.loadData()
+        })
+        present(alert, animated: true)
+    }
+
+    private func pushReport(for postId: String) {
+        let reportVC = JC_ReportVC(postId: postId)
+        reportVC.onReportSubmitted = { [weak self] in
+            self?.view.makeToast("Report submitted successfully")
+            self?.loadData()
+        }
+        navigationController?.pushViewController(reportVC, animated: true)
     }
 
     func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {

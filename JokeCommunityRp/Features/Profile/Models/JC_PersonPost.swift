@@ -8,8 +8,11 @@
 import UIKit
 
 struct JC_PersonPost {
+    let postId: String
+    let authorUserId: String
     let date: String
     let content: String
     let images: [UIImage?]
     let likeCount: String
+    let isVideo: Bool
 }

@@ -25,6 +25,7 @@ class JC_PostDetailHeaderView: UIView {
     func configure(with post: JC_PostItem, relationText: String = "Good Friend") {
         nameLabel.text = post.userName
         ageLabel.text = post.age
+        genderImageView.image = UIImage(named: post.gender.iconName)
         avatarImageView.image = post.avatar
         contentLabel.text = post.content
         likeCountLabel.text = post.likeCount

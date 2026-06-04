@@ -6,8 +6,13 @@
 //
 
 import UIKit
+import Toast_Swift
 
 class JC_ReportVC: JC_BaseVC {
+
+    private let postId: String
+
+    var onReportSubmitted: (() -> Void)?
 
     private let options: [JC_ReportOption] = [
         JC_ReportOption(imageName: "report_content"),
@@ -23,6 +28,15 @@ class JC_ReportVC: JC_BaseVC {
         let width = UIScreen.main.bounds.width - 60
         guard let image = UIImage(named: "report_bg"), image.size.width > 0 else { return 56 }
         return image.size.height / image.size.width * width
+    }
+
+    init(postId: String) {
+        self.postId = postId
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     override func viewDidLoad() {
@@ -76,6 +90,13 @@ class JC_ReportVC: JC_BaseVC {
     }
 
     @objc private func submitTapped() {
+        guard selectedIndex != nil else {
+            view.makeToast("Please select a report reason")
+            return
+        }
+
+        JC_PostStore.shared.reportPost(postId: postId)
+        onReportSubmitted?()
         navigationController?.popViewController(animated: true)
     }
 

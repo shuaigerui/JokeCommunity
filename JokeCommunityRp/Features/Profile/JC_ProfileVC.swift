@@ -6,12 +6,14 @@
 //
 
 import UIKit
+import Toast_Swift
 
 class JC_ProfileVC: JC_BaseVC {
 
     private let headerView = JC_ProfileHeaderView()
 
     private var posts: [JC_ProfilePost] = []
+    private var postsObserver: NSObjectProtocol?
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -23,6 +25,15 @@ class JC_ProfileVC: JC_BaseVC {
         setupHeaderCallback()
         setupTableView()
         loadData()
+        if postsObserver == nil {
+            postsObserver = NotificationCenter.default.addObserver(
+                forName: .jcPostsDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadData()
+            }
+        }
     }
 
     private func loadData() {
@@ -38,6 +49,8 @@ class JC_ProfileVC: JC_BaseVC {
         switch post.media {
         case .images(let list):
             return JC_ProfilePost(
+                postId: post.postId,
+                authorUserId: post.author.userId,
                 content: post.content,
                 images: list.map { Optional($0) },
                 likeCount: post.likeCount,
@@ -45,12 +58,47 @@ class JC_ProfileVC: JC_BaseVC {
             )
         case .video(let url):
             return JC_ProfilePost(
+                postId: post.postId,
+                authorUserId: post.author.userId,
                 content: post.content,
                 images: [videoThumbnail(url: url)],
                 likeCount: post.likeCount,
                 isVideo: true
             )
         }
+    }
+
+    private func handleMoreTapped(for post: JC_ProfilePost) {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+
+        if post.authorUserId == currentUserId {
+            presentDeleteConfirmation(for: post)
+        } else {
+            pushReport(for: post)
+        }
+    }
+
+    private func presentDeleteConfirmation(for post: JC_ProfilePost) {
+        let alert = UIAlertController(
+            title: "Delete Post",
+            message: "Are you sure you want to delete this post?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            JC_PostStore.shared.deletePost(postId: post.postId)
+            self?.loadData()
+        })
+        present(alert, animated: true)
+    }
+
+    private func pushReport(for post: JC_ProfilePost) {
+        let reportVC = JC_ReportVC(postId: post.postId)
+        reportVC.onReportSubmitted = { [weak self] in
+            self?.view.makeToast("Report submitted successfully")
+            self?.loadData()
+        }
+        navigationController?.pushViewController(reportVC, animated: true)
     }
 
     private func setupHeaderCallback() {
@@ -132,7 +180,11 @@ extension JC_ProfileVC: UITableViewDataSource, UITableViewDelegate {
         ) as? JC_ProfilePostCell else {
             return UITableViewCell()
         }
-        cell.configure(with: posts[indexPath.row])
+        let profilePost = posts[indexPath.row]
+        cell.configure(with: profilePost)
+        cell.onMoreTapped = { [weak self] in
+            self?.handleMoreTapped(for: profilePost)
+        }
         return cell
     }
 

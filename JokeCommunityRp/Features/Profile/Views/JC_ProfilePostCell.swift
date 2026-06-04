@@ -6,10 +6,13 @@
 //
 
 import UIKit
+import Toast_Swift
 
 class JC_ProfilePostCell: UITableViewCell {
 
     static let reuseIdentifier = "JC_ProfilePostCell"
+
+    var onMoreTapped: (() -> Void)?
 
     private var usesFullWidthImageLayout = false
 
@@ -139,6 +142,8 @@ class JC_ProfilePostCell: UITableViewCell {
             make.size.equalTo(22)
         }
 
+        moreButton.addTarget(self, action: #selector(moreTapped), for: .touchUpInside)
+
         lineImageView.snp.makeConstraints { make in
             make.top.equalTo(actionView.snp.bottom).offset(16)
             make.leading.trailing.equalToSuperview().inset(30)
@@ -198,10 +203,13 @@ class JC_ProfilePostCell: UITableViewCell {
         return button
     }()
 
+    @objc private func moreTapped() {
+        onMoreTapped?()
+    }
+
     private let moreButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setImage(UIImage(named: "profile_more"), for: .normal)
-        button.isUserInteractionEnabled = false
         return button
     }()
 

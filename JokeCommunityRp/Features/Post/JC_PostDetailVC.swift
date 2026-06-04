@@ -81,7 +81,7 @@ class JC_PostDetailVC: JC_BaseVC {
         }
         headerView.onAvatarTapped = { [weak self] in
             guard let self else { return }
-            let personVC = JC_PersonVC(userName: post.userName)
+            let personVC = JC_PersonVC(userId: post.authorUserId)
             navigationController?.pushViewController(personVC, animated: true)
         }
     }

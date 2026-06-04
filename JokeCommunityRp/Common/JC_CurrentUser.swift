@@ -24,6 +24,7 @@ final class JC_CurrentUser {
         static let isLoggedIn = "jc_isLoggedIn"
         static let loginType = "jc_loginType"
         static let storedUser = "jc_storedUser"
+        static let testUserProfile = "jc_testUserProfile"
     }
 
     private enum LoginType: String {
@@ -73,7 +74,7 @@ final class JC_CurrentUser {
                 friendCount: friendCount,
                 likeCount: likeCount,
                 coinCount: coinCount,
-                avatar: JC_CurrentUser.shared.loadAvatar(path: avatarPath),
+                avatar: JC_CurrentUser.shared.loadAvatar(path: avatarPath, userId: userId),
                 email: email,
                 password: password,
                 isBlock: isBlock,
@@ -98,7 +99,12 @@ final class JC_CurrentUser {
 
         switch type {
         case .test:
-            user = JC_UserData.testUser
+            if let data = UserDefaults.standard.data(forKey: Keys.testUserProfile),
+               let stored = try? JSONDecoder().decode(StoredUser.self, from: data) {
+                user = stored.toUserModel()
+            } else {
+                user = JC_UserData.testUser
+            }
         case .registered, .apple:
             guard let data = UserDefaults.standard.data(forKey: Keys.storedUser),
                   let stored = try? JSONDecoder().decode(StoredUser.self, from: data) else {
@@ -187,6 +193,41 @@ final class JC_CurrentUser {
         clearSession()
     }
 
+    @discardableResult
+    func publishPost(content: String, media: JC_HomePostMedia) -> Bool {
+        guard let user else { return false }
+        return JC_PostStore.shared.addUserPost(content: content, media: media, author: user)
+    }
+
+    func updateProfile(nickname: String, bio: String, gender: JC_UserGender, avatar: UIImage?) {
+        guard var model = user else { return }
+
+        let trimmedNickname = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedNickname.isEmpty else { return }
+
+        model.nickname = trimmedNickname
+        model.bio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        model.gender = gender
+
+        var avatarPath = currentStoredAvatarPath()
+        if let avatar {
+            if let savedPath = saveAvatar(avatar, userId: model.userId) {
+                avatarPath = savedPath
+                model.avatar = avatar
+            } else if let path = avatarPath, let cached = loadAvatar(path: path, userId: model.userId) {
+                model.avatar = cached
+            }
+        } else if model.avatar == nil,
+                  let path = avatarPath,
+                  let cached = loadAvatar(path: path, userId: model.userId) {
+            model.avatar = cached
+        }
+
+        user = model
+        persistProfile(avatarPath: avatarPath)
+        NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
+    }
+
     func showMainInterface(in window: UIWindow?) {
         window?.rootViewController = JC_TabbarVC()
     }
@@ -217,6 +258,34 @@ final class JC_CurrentUser {
         UserDefaults.standard.set(false, forKey: Keys.isLoggedIn)
         UserDefaults.standard.removeObject(forKey: Keys.loginType)
         UserDefaults.standard.removeObject(forKey: Keys.storedUser)
+        UserDefaults.standard.removeObject(forKey: Keys.testUserProfile)
+    }
+
+    private func persistProfile(avatarPath: String?) {
+        guard let user else { return }
+        guard let typeRaw = UserDefaults.standard.string(forKey: Keys.loginType),
+              let type = LoginType(rawValue: typeRaw) else { return }
+
+        let stored = StoredUser(user: user, avatarPath: avatarPath)
+        guard let data = try? JSONEncoder().encode(stored) else { return }
+
+        switch type {
+        case .test:
+            UserDefaults.standard.set(data, forKey: Keys.testUserProfile)
+        case .registered, .apple:
+            UserDefaults.standard.set(data, forKey: Keys.storedUser)
+        }
+    }
+
+    private func currentStoredAvatarPath() -> String? {
+        if let stored = loadStoredUser() {
+            return stored.avatarPath
+        }
+        if let data = UserDefaults.standard.data(forKey: Keys.testUserProfile),
+           let stored = try? JSONDecoder().decode(StoredUser.self, from: data) {
+            return stored.avatarPath
+        }
+        return nil
     }
 
     private func loadStoredUser() -> StoredUser? {
@@ -225,17 +294,30 @@ final class JC_CurrentUser {
     }
 
     private func saveAvatar(_ image: UIImage?, userId: String) -> String? {
-        guard let image, let data = image.pngData() else { return nil }
+        guard let image else { return nil }
+        let data = image.pngData() ?? image.jpegData(compressionQuality: 0.9)
+        guard let data else { return nil }
+
         let directory = avatarsDirectoryURL()
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let fileURL = directory.appendingPathComponent("\(userId).png")
-        try? data.write(to: fileURL)
-        return fileURL.path
+        do {
+            try data.write(to: fileURL, options: .atomic)
+            return fileURL.path
+        } catch {
+            return nil
+        }
     }
 
-    fileprivate func loadAvatar(path: String?) -> UIImage? {
-        guard let path else { return nil }
-        return UIImage(contentsOfFile: path)
+    fileprivate func loadAvatar(path: String?, userId: String) -> UIImage? {
+        if let path, FileManager.default.fileExists(atPath: path),
+           let image = UIImage(contentsOfFile: path) {
+            return image
+        }
+        if userId == JC_UserData.testUser.userId {
+            return JC_UserData.testUser.avatar
+        }
+        return nil
     }
 
     private func avatarsDirectoryURL() -> URL {

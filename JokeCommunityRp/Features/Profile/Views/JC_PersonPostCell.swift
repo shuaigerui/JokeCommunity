@@ -11,6 +11,10 @@ class JC_PersonPostCell: UITableViewCell {
 
     static let reuseIdentifier = "JC_PersonPostCell"
 
+    var onMoreTapped: (() -> Void)?
+
+    private var usesFullWidthImageLayout = false
+
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
@@ -20,15 +24,57 @@ class JC_PersonPostCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        onMoreTapped = nil
+        applySplitImageLayout()
+        leftImageView.image = nil
+        rightImageView.image = nil
+    }
+
     func configure(with post: JC_PersonPost) {
         dateLabel.text = post.date
         contentLabel.text = post.content
         likeCountLabel.text = post.likeCount
 
+        if post.isVideo {
+            applyFullWidthImageLayout()
+            leftImageView.image = post.images.first ?? nil
+            rightImageView.isHidden = true
+            rightImageView.image = nil
+            return
+        }
+
+        applySplitImageLayout()
         leftImageView.image = post.images.first ?? nil
         let hasSecondImage = post.images.count > 1
         rightImageView.isHidden = !hasSecondImage
         rightImageView.image = hasSecondImage ? post.images[1] : nil
+    }
+
+    private func applyFullWidthImageLayout() {
+        guard !usesFullWidthImageLayout else { return }
+        usesFullWidthImageLayout = true
+
+        leftImageView.snp.remakeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+    }
+
+    private func applySplitImageLayout() {
+        guard usesFullWidthImageLayout else { return }
+        usesFullWidthImageLayout = false
+
+        leftImageView.snp.remakeConstraints { make in
+            make.top.leading.bottom.equalToSuperview()
+            make.width.equalTo(rightImageView)
+        }
+
+        rightImageView.snp.remakeConstraints { make in
+            make.top.trailing.bottom.equalToSuperview()
+            make.leading.equalTo(leftImageView.snp.trailing).offset(12)
+            make.width.equalTo(leftImageView)
+        }
     }
 
     private func setupUI() {
@@ -102,12 +148,18 @@ class JC_PersonPostCell: UITableViewCell {
             make.size.equalTo(22)
         }
 
+        moreButton.addTarget(self, action: #selector(moreTapped), for: .touchUpInside)
+
         lineView.snp.makeConstraints { make in
             make.top.equalTo(actionView.snp.bottom).offset(16)
             make.leading.trailing.equalToSuperview().inset(30)
             make.height.equalTo(1)
             make.bottom.equalToSuperview().offset(-20)
         }
+    }
+
+    @objc private func moreTapped() {
+        onMoreTapped?()
     }
 
     private let dateLabel: UILabel = {
@@ -170,8 +222,7 @@ class JC_PersonPostCell: UITableViewCell {
 
     private let moreButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_more"), for: .normal)
-        button.isUserInteractionEnabled = false
+        button.setImage(UIImage(named: "post_report"), for: .normal)
         return button
     }()
 

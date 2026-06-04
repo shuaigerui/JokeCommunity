@@ -8,6 +8,7 @@
 import UIKit
 import AVFoundation
 import UniformTypeIdentifiers
+import Toast_Swift
 
 enum JC_HomePostMedia {
     case none
@@ -215,8 +216,26 @@ final class JC_HomePostView: UIView {
 
     @objc private func releaseTapped() {
         let text = textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            hostViewController?.view.makeToast("Please enter your joke content")
+            return
+        }
+
+        let hasValidMedia: Bool
+        switch media {
+        case .video:
+            hasValidMedia = true
+        case .images(let images):
+            hasValidMedia = images.count == 2
+        case .none:
+            hasValidMedia = false
+        }
+        guard hasValidMedia else {
+            hostViewController?.view.makeToast("Please upload one video or two photos")
+            return
+        }
+
         onRelease?(text, media)
-        dismiss()
     }
 
     private func presentVideoPicker(from controller: UIViewController) {

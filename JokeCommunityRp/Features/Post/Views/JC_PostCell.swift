@@ -11,6 +11,10 @@ class JC_PostCell: UITableViewCell {
 
     static let reuseIdentifier = "JC_PostCell"
 
+    var onMenuTapped: (() -> Void)?
+    var onReportTapped: (() -> Void)?
+    var onAvatarTapped: (() -> Void)?
+
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
@@ -23,6 +27,7 @@ class JC_PostCell: UITableViewCell {
     func configure(with post: JC_PostItem) {
         nameLabel.text = post.userName
         ageLabel.text = post.age
+        genderImageView.image = UIImage(named: post.gender.iconName)
         avatarImageView.image = post.avatar
         contentLabel.text = post.content
         likeCountLabel.text = post.likeCount
@@ -149,6 +154,14 @@ class JC_PostCell: UITableViewCell {
             make.size.equalTo(22)
         }
 
+        menuButton.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
+        reportButton.addTarget(self, action: #selector(reportTapped), for: .touchUpInside)
+
+        avatarImageView.isUserInteractionEnabled = true
+        avatarImageView.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(avatarTapped))
+        )
+
         lineView.snp.makeConstraints { make in
             make.top.equalTo(actionView.snp.bottom).offset(16)
             make.leading.trailing.equalToSuperview().inset(30)
@@ -199,6 +212,18 @@ class JC_PostCell: UITableViewCell {
         return button
     }()
 
+    @objc private func menuTapped() {
+        onMenuTapped?()
+    }
+
+    @objc private func reportTapped() {
+        onReportTapped?()
+    }
+
+    @objc private func avatarTapped() {
+        onAvatarTapped?()
+    }
+
     private let menuButton: UIButton = {
         let button = UIButton(type: .custom)
         button.backgroundColor = UIColor(hex: "#333333")
@@ -210,7 +235,6 @@ class JC_PostCell: UITableViewCell {
             for: .normal
         )
         button.tintColor = .white
-        button.isUserInteractionEnabled = false
         return button
     }()
 
@@ -268,7 +292,6 @@ class JC_PostCell: UITableViewCell {
     private let reportButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setImage(UIImage(named: "post_report"), for: .normal)
-        button.isUserInteractionEnabled = false
         return button
     }()
 

@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Toast_Swift
 
 enum JC_PostPageType {
     case square
@@ -18,6 +19,7 @@ class JC_PostVC: JC_BaseVC {
 
     private var squarePosts: [JC_PostItem] = []
     private var friendPosts: [JC_PostItem] = []
+    private var postsObserver: NSObjectProtocol?
 
     private var currentPosts: [JC_PostItem] {
         pageType == .square ? squarePosts : friendPosts
@@ -34,10 +36,27 @@ class JC_PostVC: JC_BaseVC {
         setupTableView()
         updateHeaderSelection()
         loadData()
+        if postsObserver == nil {
+            let center = NotificationCenter.default
+            postsObserver = center.addObserver(
+                forName: .jcPostsDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadData()
+            }
+            center.addObserver(
+                forName: .jcUserProfileDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadData()
+            }
+        }
     }
 
     private func loadData() {
-        let currentUser = JC_UserModel.current
+        let currentUser = JC_CurrentUser.shared.user ?? JC_UserModel.current
         let followingIds = Set(currentUser.followingUserIds)
 
         squarePosts = JC_UserData.imagePosts.map { makePostItem(from: $0, currentUser: currentUser) }
@@ -49,7 +68,7 @@ class JC_PostVC: JC_BaseVC {
     }
 
     private func makePostItem(from post: JC_PostModel, currentUser: JC_UserModel) -> JC_PostItem {
-        let author = post.author
+        let author = JC_UserData.resolvedAuthor(for: post)
         let images: [UIImage?]
         switch post.media {
         case .images(let list):
@@ -62,14 +81,50 @@ class JC_PostVC: JC_BaseVC {
         let isFollowing = currentUser.isFollowing(userId: author.userId)
 
         return JC_PostItem(
+            postId: post.postId,
+            authorUserId: author.userId,
             userName: author.nickname,
             age: author.ageText,
+            gender: author.gender,
             avatar: author.avatar,
             content: post.content,
             images: images,
             likeCount: post.likeCount,
             showAddFriend: !isSelf && !isFollowing
         )
+    }
+
+    private func handlePostAction(for post: JC_PostItem) {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+
+        if post.authorUserId == currentUserId {
+            presentDeleteConfirmation(for: post)
+        } else {
+            pushReport(for: post)
+        }
+    }
+
+    private func presentDeleteConfirmation(for post: JC_PostItem) {
+        let alert = UIAlertController(
+            title: "Delete Post",
+            message: "Are you sure you want to delete this post?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            JC_PostStore.shared.deletePost(postId: post.postId)
+            self?.loadData()
+        })
+        present(alert, animated: true)
+    }
+
+    private func pushReport(for post: JC_PostItem) {
+        let reportVC = JC_ReportVC(postId: post.postId)
+        reportVC.onReportSubmitted = { [weak self] in
+            self?.view.makeToast("Report submitted successfully")
+            self?.loadData()
+        }
+        navigationController?.pushViewController(reportVC, animated: true)
     }
 
     private func setupHeader() {
@@ -203,7 +258,18 @@ extension JC_PostVC: UITableViewDataSource, UITableViewDelegate {
         ) as? JC_PostCell else {
             return UITableViewCell()
         }
-        cell.configure(with: currentPosts[indexPath.row])
+        let postItem = currentPosts[indexPath.row]
+        cell.configure(with: postItem)
+        cell.onMenuTapped = { [weak self] in
+            self?.handlePostAction(for: postItem)
+        }
+        cell.onReportTapped = { [weak self] in
+            self?.handlePostAction(for: postItem)
+        }
+        cell.onAvatarTapped = { [weak self] in
+            let personVC = JC_PersonVC(userId: postItem.authorUserId)
+            self?.navigationController?.pushViewController(personVC, animated: true)
+        }
         return cell
     }
 
