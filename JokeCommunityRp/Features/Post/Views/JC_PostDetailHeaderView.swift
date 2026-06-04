@@ -12,6 +12,11 @@ class JC_PostDetailHeaderView: UIView {
     static let headerHeight: CGFloat = 415
 
     var onAvatarTapped: (() -> Void)?
+    var onLikeTapped: (() -> Void)?
+    var onDislikeTapped: (() -> Void)?
+
+    private var postId: String = ""
+    private var authorUserId: String = ""
 
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: Self.headerHeight))
@@ -23,17 +28,21 @@ class JC_PostDetailHeaderView: UIView {
     }
 
     func configure(with post: JC_PostItem, relationText: String = "Good Friend") {
+        postId = post.postId
+        authorUserId = post.authorUserId
         nameLabel.text = post.userName
         ageLabel.text = post.age
         genderImageView.image = UIImage(named: post.gender.iconName)
         avatarImageView.image = post.avatar
         contentLabel.text = post.content
-        likeCountLabel.text = post.likeCount
+        applyLikeState(isLiked: post.isLiked, likeCount: post.likeCount)
+        applyDislikeState(isDisliked: post.isDisliked, dislikeCount: post.dislikeCount)
 
         leftImageView.image = post.images.first ?? nil
         let hasSecondImage = post.images.count > 1
         rightImageView.isHidden = !hasSecondImage
         rightImageView.image = hasSecondImage ? post.images[1] : nil
+        updateRelationButtonState()
     }
 
     private func setupUI() {
@@ -53,7 +62,7 @@ class JC_PostDetailHeaderView: UIView {
         actionView.addSubview(likeButton)
         actionView.addSubview(likeCountLabel)
         actionView.addSubview(dislikeButton)
-        actionView.addSubview(reportButton)
+        actionView.addSubview(dislikeCountLabel)
         addSubview(lineView)
 
         avatarImageView.snp.makeConstraints { make in
@@ -89,8 +98,8 @@ class JC_PostDetailHeaderView: UIView {
         relationButton.snp.makeConstraints { make in
             make.leading.equalTo(genderContainer.snp.trailing).offset(10)
             make.centerY.equalTo(genderContainer)
-            make.height.equalTo(21)
-            make.height.equalTo(95)
+            make.width.equalTo(96)
+            make.height.equalTo(26)
         }
         
         contentLabel.snp.makeConstraints { make in
@@ -137,9 +146,9 @@ class JC_PostDetailHeaderView: UIView {
             make.size.equalTo(21)
         }
 
-        reportButton.snp.makeConstraints { make in
-            make.trailing.centerY.equalToSuperview()
-            make.size.equalTo(22)
+        dislikeCountLabel.snp.makeConstraints { make in
+            make.leading.equalTo(dislikeButton.snp.trailing).offset(6)
+            make.centerY.equalTo(dislikeButton)
         }
 
         lineView.snp.makeConstraints { make in
@@ -152,10 +161,79 @@ class JC_PostDetailHeaderView: UIView {
         avatarImageView.addGestureRecognizer(
             UITapGestureRecognizer(target: self, action: #selector(avatarTapped))
         )
+        configureLikeButton(likeButton)
+        configureDislikeButton(dislikeButton)
+        likeButton.addTarget(self, action: #selector(likeTapped), for: .touchUpInside)
+        dislikeButton.addTarget(self, action: #selector(dislikeTapped), for: .touchUpInside)
+        relationButton.addTarget(self, action: #selector(relationTapped), for: .touchUpInside)
     }
-
+    
     @objc private func avatarTapped() {
         onAvatarTapped?()
+    }
+
+    @objc private func likeTapped() {
+        guard !postId.isEmpty else { return }
+        onLikeTapped?()
+    }
+
+    @objc private func dislikeTapped() {
+        guard !postId.isEmpty else { return }
+        onDislikeTapped?()
+    }
+    
+    @objc private func relationTapped() {
+        guard !authorUserId.isEmpty else { return }
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        guard authorUserId != currentUserId else { return }
+
+        _ = JC_CurrentUser.shared.toggleFollow(userId: authorUserId)
+        updateRelationButtonState()
+    }
+
+    private func updateRelationButtonState() {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        let isSelf = authorUserId == currentUserId
+        relationButton.isHidden = isSelf
+        relationButton.isSelected = JC_CurrentUser.shared.isFollowing(userId: authorUserId)
+    }
+
+    func applyLikeState(isLiked: Bool, likeCount: String) {
+        likeButton.isSelected = isLiked
+        updateLikeButtonAppearance()
+        likeCountLabel.text = likeCount
+    }
+
+    func applyDislikeState(isDisliked: Bool, dislikeCount: String) {
+        dislikeButton.isSelected = isDisliked
+        updateDislikeButtonAppearance()
+        dislikeCountLabel.text = dislikeCount
+    }
+
+    private func configureLikeButton(_ button: UIButton) {
+        let image = UIImage(named: "profile_like")
+        button.setImage(image?.withRenderingMode(.alwaysOriginal), for: .normal)
+        button.setImage(image?.withRenderingMode(.alwaysTemplate), for: .selected)
+        updateLikeButtonAppearance()
+    }
+
+    private func updateLikeButtonAppearance() {
+        likeButton.tintColor = likeButton.isSelected ? UIColor(hex: "#E5404F") : UIColor(hex: "#333333")
+    }
+
+    private func configureDislikeButton(_ button: UIButton) {
+        let image = UIImage(named: "profile_dislike")
+        button.setImage(image?.withRenderingMode(.alwaysTemplate), for: .normal)
+        button.setImage(image?.withRenderingMode(.alwaysOriginal), for: .selected)
+        updateDislikeButtonAppearance()
+    }
+
+    private func updateDislikeButtonAppearance() {
+        if dislikeButton.isSelected {
+            dislikeButton.tintColor = nil
+        } else {
+            dislikeButton.tintColor = .white
+        }
     }
 
     private let avatarImageView: UIImageView = {
@@ -235,8 +313,6 @@ class JC_PostDetailHeaderView: UIView {
 
     private let likeButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_like"), for: .normal)
-        button.isUserInteractionEnabled = false
         return button
     }()
 
@@ -249,16 +325,14 @@ class JC_PostDetailHeaderView: UIView {
 
     private let dislikeButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_dislike"), for: .normal)
-        button.isUserInteractionEnabled = false
         return button
     }()
 
-    private let reportButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "post_report"), for: .normal)
-        button.isUserInteractionEnabled = false
-        return button
+    private let dislikeCountLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.boldSystemFont(ofSize: 14)
+        label.textColor = UIColor(hex: "#333333")
+        return label
     }()
 
     private let lineView: UIView = {

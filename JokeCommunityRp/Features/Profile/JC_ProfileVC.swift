@@ -37,7 +37,8 @@ class JC_ProfileVC: JC_BaseVC {
     }
 
     private func loadData() {
-        let user = JC_CurrentUser.shared.user ?? JC_UserModel.current
+        JC_CurrentUser.shared.refreshCurrentUserAvatar()
+        guard let user = JC_CurrentUser.shared.user else { return }
 
         headerView.configure(with: user)
         posts = JC_UserData.posts(for: user.userId).map { makeProfilePost(from: $0) }
@@ -118,6 +119,12 @@ class JC_ProfileVC: JC_BaseVC {
             guard let self else { return }
             let coinsVC = JC_CoinsVC()
             self.navigationController?.pushViewController(coinsVC, animated: true)
+        }
+
+        headerView.onFriendsTapped = { [weak self] in
+            guard let self else { return }
+            let friendsVC = JC_FriendsVC()
+            self.navigationController?.pushViewController(friendsVC, animated: true)
         }
     }
 

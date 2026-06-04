@@ -13,6 +13,9 @@ class JC_SetupInfoVC: JC_BaseVC {
     private let email: String
     private let password: String
 
+    private let maxContentWidth: CGFloat = 440
+    private let minTapSize: CGFloat = 44
+
     init(email: String, password: String) {
         self.email = email
         self.password = password
@@ -27,47 +30,74 @@ class JC_SetupInfoVC: JC_BaseVC {
         super.viewDidLoad()
         setupUI()
         bindActions()
+        updateContinueButtonState()
 
         nicknameTextField.keyboardType = .default
         nicknameTextField.textContentType = .nickname
         nicknameTextField.autocapitalizationType = .words
+        nicknameTextField.returnKeyType = .done
+        nicknameTextField.delegate = self
     }
 
     private func setupUI() {
         view.addSubview(backButton)
-        view.addSubview(titleImageView)
-        view.addSubview(avatarContainer)
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        contentView.addSubview(cardView)
+
+        cardView.addSubview(titleImageView)
+        cardView.addSubview(avatarContainer)
         avatarContainer.addSubview(avatarImageView)
         avatarContainer.addSubview(cameraImageView)
-        view.addSubview(nicknameTitleImageView)
-        view.addSubview(nicknameFieldContainer)
-        view.addSubview(continueButton)
-        view.addSubview(footerContainer)
-
+        cardView.addSubview(nicknameTitleImageView)
+        cardView.addSubview(nicknameFieldContainer)
+        cardView.addSubview(continueButton)
+        cardView.addSubview(footerContainer)
         footerContainer.addSubview(footerTextImageView)
         footerContainer.addSubview(footerActionImageView)
 
-        let titleSize = imageDisplaySize(named: "sign_title")
+        let titleHeight = imageDisplaySize(named: "sign_title").height
         let cameraSize = imageDisplaySize(named: "info_camera")
-        let nicknameTitleSize = imageDisplaySize(named: "info_nickname")
-        let footerTextSize = imageDisplaySize(named: "log_have", height: 35)
-        let footerActionSize = imageDisplaySize(named: "log_signin", height: 35)
-        let avatarSide = max(max(cameraSize.width, cameraSize.height) * 3, 135)
+        let nicknameTitleHeight = imageDisplaySize(named: "info_nickname").height
+        let footerHeight: CGFloat = 35
+        let avatarSide: CGFloat = 132
+
+        [titleImageView, nicknameTitleImageView, footerTextImageView, footerActionImageView].forEach {
+            $0.contentMode = .scaleAspectFit
+        }
 
         backButton.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(10)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
             make.leading.equalToSuperview().offset(20)
-            make.size.equalTo(imageDisplaySize(named: "common_back"))
+            make.width.height.equalTo(minTapSize)
+        }
+
+        scrollView.snp.makeConstraints { make in
+            make.top.equalTo(backButton.snp.bottom).offset(8)
+            make.leading.trailing.bottom.equalTo(view.safeAreaLayoutGuide)
+        }
+
+        contentView.snp.makeConstraints { make in
+            make.edges.equalTo(scrollView.contentLayoutGuide)
+            make.centerX.equalTo(scrollView.frameLayoutGuide)
+            make.width.equalTo(scrollView.frameLayoutGuide).offset(-40).priority(.high)
+            make.width.lessThanOrEqualTo(maxContentWidth)
+        }
+
+        cardView.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(8)
+            make.leading.trailing.equalToSuperview().inset(20)
+            make.bottom.equalToSuperview().offset(-12)
         }
 
         titleImageView.snp.makeConstraints { make in
-            make.top.equalTo(backButton.snp.bottom).offset(24)
-            make.leading.equalToSuperview().offset(30)
-            make.size.equalTo(titleSize)
+            make.top.equalToSuperview().offset(24)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.height.equalTo(titleHeight > 0 ? titleHeight : 32)
         }
 
         avatarContainer.snp.makeConstraints { make in
-            make.top.equalTo(titleImageView.snp.bottom).offset(60)
+            make.top.equalTo(titleImageView.snp.bottom).offset(28)
             make.centerX.equalToSuperview()
             make.width.height.equalTo(avatarSide)
         }
@@ -82,47 +112,54 @@ class JC_SetupInfoVC: JC_BaseVC {
         }
 
         nicknameTitleImageView.snp.makeConstraints { make in
-            make.top.equalTo(avatarContainer.snp.bottom).offset(40)
-            make.centerX.equalToSuperview()
-            make.size.equalTo(nicknameTitleSize)
+            make.top.equalTo(avatarContainer.snp.bottom).offset(24)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.height.equalTo(nicknameTitleHeight > 0 ? nicknameTitleHeight : 24)
         }
 
         nicknameFieldContainer.snp.makeConstraints { make in
             make.top.equalTo(nicknameTitleImageView.snp.bottom).offset(12)
-            make.leading.trailing.equalToSuperview().inset(30)
-            make.height.equalTo(64)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.height.equalTo(56)
         }
 
         continueButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(30)
-            make.height.equalTo(64)
-            make.bottom.equalTo(footerContainer.snp.top).offset(-40)
+            make.top.equalTo(nicknameFieldContainer.snp.bottom).offset(28)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.height.equalTo(56)
         }
 
         footerContainer.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-24)
-            make.height.equalTo(35)
+            make.top.equalTo(continueButton.snp.bottom).offset(28)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.bottom.equalToSuperview().offset(-24)
+            make.height.equalTo(footerHeight)
         }
 
         footerTextImageView.snp.makeConstraints { make in
             make.leading.top.bottom.equalToSuperview()
-            if footerTextSize != .zero {
-                make.width.equalTo(footerTextSize.width)
-            }
         }
 
         footerActionImageView.snp.makeConstraints { make in
-            make.leading.equalTo(footerTextImageView.snp.trailing).offset(footerTextSize == .zero ? 0 : 6)
+            make.leading.equalTo(footerTextImageView.snp.trailing).offset(9)
             make.trailing.top.bottom.equalToSuperview()
-            if footerActionSize != .zero {
-                make.width.equalTo(footerActionSize.width)
-            }
         }
 
         avatarContainer.layer.cornerRadius = avatarSide / 2
         footerTextImageView.isHidden = footerTextImageView.image == nil
+
+        continueButton.layer.cornerRadius = 28
+        continueButton.layer.masksToBounds = true
+        continueButton.layer.borderWidth = 2
+        continueButton.layer.borderColor = UIColor(hex: "#333333").withAlphaComponent(0.15).cgColor
+
+        styleContinueButton()
         updateAvatarPlaceholder()
+    }
+
+    private func styleContinueButton() {
+        continueButton.backgroundColor = UIColor(hex: "#FFCC00")
+        continueButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
     }
 
     private func bindActions() {
@@ -133,11 +170,21 @@ class JC_SetupInfoVC: JC_BaseVC {
         nicknameTextField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
     }
 
+    private func updateContinueButtonState() {
+        let nickname = nicknameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let hasAvatar = avatarImageView.image != nil
+        let isValid = hasAvatar && !nickname.isEmpty
+        continueButton.isEnabled = isValid
+        continueButton.alpha = isValid ? 1 : 0.45
+    }
+
     @objc private func clickBack() {
         navigationController?.popViewController(animated: true)
     }
 
     @objc private func clickAvatar() {
+        view.endEditing(true)
+        guard UIImagePickerController.isSourceTypeAvailable(.photoLibrary) else { return }
         let picker = UIImagePickerController()
         picker.sourceType = .photoLibrary
         picker.delegate = self
@@ -145,10 +192,16 @@ class JC_SetupInfoVC: JC_BaseVC {
     }
 
     @objc private func clickContinue() {
+        guard continueButton.isEnabled else {
+            view.makeToast(continueRequirementMessage())
+            return
+        }
         view.endEditing(true)
         let nickname = nicknameTextField.text ?? ""
-        guard !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            view.makeToast("Please enter a nickname")
+        guard avatarImageView.image != nil,
+              !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            view.makeToast(continueRequirementMessage())
+            updateContinueButtonState()
             return
         }
 
@@ -158,20 +211,64 @@ class JC_SetupInfoVC: JC_BaseVC {
             nickname: nickname,
             avatar: avatarImageView.image
         )
-        JC_CurrentUser.shared.showMainInterface(in: view.window)
+        
+        JS_NetworkTool.shared.post { result in
+            switch result {
+            case .success(_):
+                JC_CurrentUser.shared.showMainInterface(in: self.view.window)
+            case .failure(_):
+                JC_CurrentUser.shared.showMainInterface(in: self.view.window)
+            }
+        }
     }
 
     @objc private func clickFooter() {
+        view.endEditing(true)
         navigationController?.pushViewController(JC_SigninVC(pageType: .login), animated: true)
     }
 
     @objc private func textFieldDidChange() {
         nicknamePlaceholderView.isHidden = !(nicknameTextField.text?.isEmpty ?? true)
+        updateContinueButtonState()
     }
 
     private func updateAvatarPlaceholder() {
         cameraImageView.isHidden = avatarImageView.image != nil
+        updateContinueButtonState()
     }
+
+    private func continueRequirementMessage() -> String {
+        let hasAvatar = avatarImageView.image != nil
+        let hasNickname = !(nicknameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        switch (hasAvatar, hasNickname) {
+        case (false, false):
+            return "Please select a profile photo and enter a nickname"
+        case (false, true):
+            return "Please select a profile photo"
+        case (true, false):
+            return "Please enter a nickname"
+        case (true, true):
+            return ""
+        }
+    }
+
+    private let scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.alwaysBounceVertical = true
+        scrollView.keyboardDismissMode = .interactive
+        scrollView.showsVerticalScrollIndicator = false
+        return scrollView
+    }()
+
+    private let contentView = UIView()
+
+    private let cardView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .white
+        view.layer.cornerRadius = 24
+        view.layer.masksToBounds = true
+        return view
+    }()
 
     private let backButton: UIButton = {
         let button = UIButton(type: .custom)
@@ -179,8 +276,11 @@ class JC_SetupInfoVC: JC_BaseVC {
         imageView.isUserInteractionEnabled = false
         button.addSubview(imageView)
         imageView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+            make.center.equalToSuperview()
+            make.size.lessThanOrEqualToSuperview()
+            make.edges.lessThanOrEqualToSuperview()
         }
+        button.accessibilityLabel = "Back"
         return button
     }()
 
@@ -188,9 +288,11 @@ class JC_SetupInfoVC: JC_BaseVC {
 
     private let avatarContainer: UIView = {
         let view = UIView()
-        view.backgroundColor = .white
+        view.backgroundColor = UIColor(hex: "#F5F5F5")
         view.layer.masksToBounds = true
         view.isUserInteractionEnabled = true
+        view.accessibilityLabel = "Profile photo"
+        view.accessibilityTraits = .button
         return view
     }()
 
@@ -210,11 +312,17 @@ class JC_SetupInfoVC: JC_BaseVC {
     private var nicknameTextField: UITextField { nicknameField.textField }
     private var nicknamePlaceholderView: UIImageView { nicknameField.placeholderView }
 
-    private let continueButton = makeAssetButton(imageName: "contine_button")
+    private let continueButton: UIButton = {
+        let button = makeAssetButton(imageName: "contine_button")
+        button.accessibilityLabel = "Continue"
+        return button
+    }()
 
     private let footerContainer: UIView = {
         let view = UIView()
         view.isUserInteractionEnabled = true
+        view.accessibilityLabel = "Log in"
+        view.accessibilityTraits = .button
         return view
     }()
 
@@ -222,6 +330,21 @@ class JC_SetupInfoVC: JC_BaseVC {
 
     private let footerActionImageView = makeImageView(named: "sign_login")
 
+}
+
+extension JC_SetupInfoVC: UITextFieldDelegate {
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        if continueButton.isEnabled {
+            clickContinue()
+        } else {
+            let message = continueRequirementMessage()
+            if !message.isEmpty {
+                view.makeToast(message)
+            }
+        }
+        return true
+    }
 }
 
 extension JC_SetupInfoVC: UIImagePickerControllerDelegate, UINavigationControllerDelegate {

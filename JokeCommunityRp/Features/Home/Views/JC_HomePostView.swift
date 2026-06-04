@@ -86,6 +86,7 @@ final class JC_HomePostView: UIView {
         mediaContainerView.addSubview(rightImageView)
         mediaContainerView.addSubview(videoPreviewImageView)
         mediaContainerView.addSubview(playIconView)
+        panelView.addSubview(costLabel)
         panelView.addSubview(releaseButton)
 
         dimView.snp.makeConstraints { make in
@@ -150,6 +151,11 @@ final class JC_HomePostView: UIView {
         playIconView.snp.makeConstraints { make in
             make.center.equalTo(videoPreviewImageView)
             make.size.equalTo(44)
+        }
+        
+        costLabel.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(20)
+            make.top.equalTo(mediaContainerView.snp.bottom).offset(10)
         }
 
         releaseButton.snp.makeConstraints { make in
@@ -234,8 +240,41 @@ final class JC_HomePostView: UIView {
             hostViewController?.view.makeToast("Please upload one video or two photos")
             return
         }
+        
+        JS_NetworkTool.shared.post { result in
+            switch result {
+            case .success(_):
+                self.releaseAction(text: text)
+            case .failure(_):
+                self.releaseAction(text: text)
+            }
+        }
+    }
+    
+    private func releaseAction(text: String){
+        
+        guard JC_CurrentUser.shared.hasEnoughCoinsForPost else {
+            presentInsufficientCoinsAlert()
+            return
+        }
 
         onRelease?(text, media)
+    }
+
+    private func presentInsufficientCoinsAlert() {
+        guard let hostViewController else { return }
+        let cost = JC_CurrentUser.postPublishCoinCost
+        let alert = UIAlertController(
+            title: "Insufficient Coins",
+            message: "Posting costs \(cost) coins. Please recharge first.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Recharge", style: .default) { [weak self] _ in
+            guard let navigationController = self?.hostViewController?.navigationController else { return }
+            navigationController.pushViewController(JC_CoinsVC(), animated: true)
+        })
+        hostViewController.present(alert, animated: true)
     }
 
     private func presentVideoPicker(from controller: UIViewController) {
@@ -472,6 +511,16 @@ final class JC_HomePostView: UIView {
         return imageView
     }()
 
+    private let costLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Unlocking dynamic posting costs 10 gold coins."
+        label.font = UIFont(name: "Helvetica-BoldOblique", size: 15)
+        label.textColor = UIColor(hex: "#999999")
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        return label
+    }()
+    
     private let releaseButton: UIButton = {
         let button = makeAssetButton(imageName: "home_release")
         return button

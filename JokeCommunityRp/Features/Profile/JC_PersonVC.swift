@@ -264,6 +264,15 @@ class JC_PersonVC: JC_BaseVC {
     }
 
     @objc private func clickCall() {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        guard userId != currentUserId else { return }
+
+        if !JC_CurrentUser.shared.isFollowing(userId: userId) {
+            JC_ChatAlertView.show(in: self)
+            return
+        }
+
+        JC_VideoRoomVC.presentFrom(self, peerUserId: userId, roomTitle: displayName.uppercased())
     }
 
     private let backButton: UIButton = {

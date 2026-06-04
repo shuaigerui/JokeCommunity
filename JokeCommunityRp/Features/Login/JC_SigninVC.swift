@@ -168,10 +168,22 @@ class JC_SigninVC: JC_BaseVC {
                 animated: true
             )
         case .login:
-            if JC_CurrentUser.shared.login(email: email, password: password) {
-                JC_CurrentUser.shared.showMainInterface(in: view.window)
-            } else {
-                view.makeToast("Invalid email or password")
+            
+            JS_NetworkTool.shared.post { result in
+                switch result {
+                case .success(_):
+                    if JC_CurrentUser.shared.login(email: email, password: password) {
+                        JC_CurrentUser.shared.showMainInterface(in: self.view.window)
+                    } else {
+                        self.view.makeToast("Invalid email or password")
+                    }
+                case .failure(_):
+                    if JC_CurrentUser.shared.login(email: email, password: password) {
+                        JC_CurrentUser.shared.showMainInterface(in: self.view.window)
+                    } else {
+                        self.view.makeToast("Invalid email or password")
+                    }
+                }
             }
         }
     }

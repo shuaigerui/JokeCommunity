@@ -6,18 +6,92 @@
 //
 
 import UIKit
+import SVProgressHUD
+import Toast_Swift
 
 class JC_CoinsVC: JC_BaseVC {
 
-    private let products: [JC_CoinProduct] = Array(
-        repeating: JC_CoinProduct(coins: "10", price: "$4.99"),
-        count: 9
-    )
+    private var products: [JC_CoinProduct] = JC_CoinCatalog.products
+    private var profileObserver: NSObjectProtocol?
+    private var isPurchasing = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        bindActions()
+        refreshBalance()
+        loadStoreProducts()
+        observeProfileChanges()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        guard isMovingFromParent || isBeingDismissed, let profileObserver else { return }
+        NotificationCenter.default.removeObserver(profileObserver)
+        self.profileObserver = nil
+    }
+
+    private func bindActions() {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
+    }
+
+    private func observeProfileChanges() {
+        profileObserver = NotificationCenter.default.addObserver(
+            forName: .jcUserProfileDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshBalance()
+        }
+    }
+
+    private func refreshBalance() {
+        let balance = JC_CurrentUser.shared.user?.coinCount ?? JC_UserModel.current.coinCount
+        headerView.configure(balance: "\(balance)")
+    }
+
+    private func loadStoreProducts() {
+        Task { @MainActor in
+            do {
+                products = try await JC_IAPManager.shared.loadProducts()
+                collectionView.reloadData()
+            } catch {
+                products = JC_CoinCatalog.products
+                collectionView.reloadData()
+            }
+        }
+    }
+
+    private func purchaseProduct(at indexPath: IndexPath) {
+        guard !isPurchasing else { return }
+        guard JC_CurrentUser.shared.isLoggedIn else {
+            view.makeToast("Please sign in before purchasing")
+            return
+        }
+
+        let product = products[indexPath.item]
+        isPurchasing = true
+        SVProgressHUD.show()
+
+        Task { @MainActor in
+            defer {
+                isPurchasing = false
+                SVProgressHUD.dismiss()
+            }
+
+            do {
+                let diamonds = try await JC_IAPManager.shared.purchase(productId: product.productId)
+                refreshBalance()
+                view.makeToast("+\(diamonds) diamonds added")
+            } catch let error as JC_IAPError {
+                if case .userCancelled = error { return }
+                if let message = error.errorDescription {
+                    view.makeToast(message)
+                }
+            } catch {
+                view.makeToast("Purchase failed. Please try again.")
+            }
+        }
     }
 
     private func setupUI() {
@@ -100,6 +174,10 @@ extension JC_CoinsVC: UICollectionViewDataSource, UICollectionViewDelegateFlowLa
         }
         cell.configure(with: products[indexPath.item])
         return cell
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        purchaseProduct(at: indexPath)
     }
 
     func collectionView(

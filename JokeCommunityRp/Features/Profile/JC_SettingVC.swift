@@ -50,6 +50,12 @@ class JC_SettingVC: JC_BaseVC {
             let button = makeMenuButton(imageName: imageName)
             if imageName == "setting_backlist" {
                 button.addTarget(self, action: #selector(clickBlacklist), for: .touchUpInside)
+            } else if imageName == "setting_privacy" {
+                button.addTarget(self, action: #selector(clickPrivacy), for: .touchUpInside)
+            } else if imageName == "setting_agree" {
+                button.addTarget(self, action: #selector(clickAgreement), for: .touchUpInside)
+            } else if imageName == "setting_del" {
+                button.addTarget(self, action: #selector(clickDellist), for: .touchUpInside)
             }
             menuStackView.addArrangedSubview(button)
         }
@@ -58,6 +64,38 @@ class JC_SettingVC: JC_BaseVC {
     @objc private func clickBlacklist() {
         let blacklistVC = JC_BlackListVC()
         navigationController?.pushViewController(blacklistVC, animated: true)
+    }
+
+    @objc private func clickPrivacy() {
+        openDocument(
+            urlString: "https://docs.google.com/document/d/1_EXH4uyMBDmJuYYx2_6Bd-n2BVB1EYrenWQLYuWvP2U/edit?usp=sharing"
+        )
+    }
+
+    @objc private func clickAgreement() {
+        openDocument(
+            urlString: "https://docs.google.com/document/d/1zsHub5Kdsmgz56SMhPKk3zrEptY2lM-ijw8VJUFhsws/edit?usp=sharing"
+        )
+    }
+
+    private func openDocument(urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
+
+    @objc private func clickDellist() {
+        let alert = UIAlertController(
+            title: "Delete Account",
+            message: "Are you sure you want to delete your account? All your data including posts, likes, follows, and chats will be permanently removed. This can't be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            JC_CurrentUser.shared.deleteAccount()
+            JC_CurrentUser.shared.showWelcomeInterface(in: self.view.window)
+        })
+        present(alert, animated: true)
     }
 
     @objc private func clickLogout() {

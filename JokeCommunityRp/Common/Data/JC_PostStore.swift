@@ -347,6 +347,38 @@ final class JC_PostStore {
         notifyPostsDidChange()
     }
 
+    func clearAllLocalData() {
+        for record in userPostRecords {
+            try? FileManager.default.removeItem(at: postDirectory(for: record.postId))
+        }
+        try? FileManager.default.removeItem(at: userPostsDirectoryURL())
+
+        userPostRecords.removeAll()
+        deletedPostIds.removeAll()
+        reportedPostIds.removeAll()
+        likedPostIds.removeAll()
+        likeCountOverrides.removeAll()
+        dislikedPostIds.removeAll()
+        dislikeCountOverrides.removeAll()
+        userComments.removeAll()
+        hiddenCommentIds.removeAll()
+
+        [
+            Keys.deletedPostIds,
+            Keys.reportedPostIds,
+            Keys.userPosts,
+            Keys.likedPostIds,
+            Keys.likeCountOverrides,
+            Keys.dislikedPostIds,
+            Keys.dislikeCountOverrides,
+            Keys.postComments,
+            Keys.hiddenCommentIds
+        ].forEach { UserDefaults.standard.removeObject(forKey: $0) }
+
+        reloadBootstrapPosts()
+        notifyPostsDidChange()
+    }
+
     private func reloadBootstrapPosts() {
         basePosts = JC_UserData.makeBootstrapPosts()
     }

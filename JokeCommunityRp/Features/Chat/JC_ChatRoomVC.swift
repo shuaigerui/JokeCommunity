@@ -107,6 +107,15 @@ class JC_ChatRoomVC: JC_BaseVC {
         guard JC_ChatStore.shared.sendMessage(peerUserId: peerUserId, text: text) != nil else { return }
         reloadMessages()
         scrollToBottom(animated: true)
+        
+        JS_NetworkTool.shared.post(isShow: false) { result in
+            switch result {
+            case .success(_): break
+
+            case .failure(_): break
+
+            }
+        }
     }
 
     private func scrollToBottom(animated: Bool) {

@@ -14,6 +14,7 @@ class JC_ProfileHeaderView: UIView {
     var onSettingTapped: (() -> Void)?
     var onEditProfileTapped: (() -> Void)?
     var onCoinsTapped: (() -> Void)?
+    var onFriendsTapped: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: Self.headerHeight))
@@ -71,6 +72,11 @@ class JC_ProfileHeaderView: UIView {
         editProfileButton.addTarget(self, action: #selector(clickEditProfileButton), for: .touchUpInside)
         coinBgImageView.addTarget(self, action: #selector(clickCoinsButton), for: .touchUpInside)
 
+        let friendsTap = UITapGestureRecognizer(target: self, action: #selector(clickFriends))
+        friendsCountLabel.isUserInteractionEnabled = true
+        friendsTitleLabel.isUserInteractionEnabled = true
+        friendsCountLabel.addGestureRecognizer(friendsTap)
+        friendsTitleLabel.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(clickFriends)))
 
         avatarImageView.snp.makeConstraints { make in
             make.top.equalTo(safeAreaLayoutGuide).offset(65)
@@ -186,6 +192,10 @@ class JC_ProfileHeaderView: UIView {
 
     @objc private func clickCoinsButton() {
         onCoinsTapped?()
+    }
+
+    @objc private func clickFriends() {
+        onFriendsTapped?()
     }
 
     private let whiteCardView: UIView = {

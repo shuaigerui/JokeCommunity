@@ -25,8 +25,15 @@ class JC_PostDetailVC: JC_BaseVC {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
-        loadData()
+        configureHeader()
+        JS_NetworkTool.shared.post { result in
+            switch result {
+            case .success(_):
+                self.loadData()
+            case .failure(_):
+                self.loadData()
+            }
+        }
     }
 
     override func viewDidLoad() {
@@ -93,10 +100,45 @@ class JC_PostDetailVC: JC_BaseVC {
             let personVC = JC_PersonVC(userId: post.authorUserId)
             navigationController?.pushViewController(personVC, animated: true)
         }
+        headerView.onLikeTapped = { [weak self] in
+            self?.handleLikeTapped()
+        }
+        headerView.onDislikeTapped = { [weak self] in
+            self?.handleDislikeTapped()
+        }
     }
 
     private func configureHeader() {
-        headerView.configure(with: post)
+        headerView.configure(with: currentPostItem())
+    }
+
+    private func currentPostItem() -> JC_PostItem {
+        guard let model = JC_PostStore.shared.post(postId: post.postId) else { return post }
+        return JC_PostItem(
+            postId: post.postId,
+            authorUserId: post.authorUserId,
+            userName: post.userName,
+            age: post.age,
+            gender: post.gender,
+            avatar: post.avatar,
+            content: post.content,
+            images: post.images,
+            likeCount: model.likeCount,
+            dislikeCount: model.dislikeCount,
+            isLiked: JC_PostStore.shared.isLiked(postId: post.postId),
+            isDisliked: JC_PostStore.shared.isDisliked(postId: post.postId),
+            showAddFriend: post.showAddFriend
+        )
+    }
+
+    private func handleLikeTapped() {
+        guard let result = JC_PostStore.shared.toggleLike(postId: post.postId) else { return }
+        headerView.applyLikeState(isLiked: result.isLiked, likeCount: result.likeCount)
+    }
+
+    private func handleDislikeTapped() {
+        guard let result = JC_PostStore.shared.toggleDislike(postId: post.postId) else { return }
+        headerView.applyDislikeState(isDisliked: result.isDisliked, dislikeCount: result.dislikeCount)
     }
 
     private func updateTableHeaderLayout() {

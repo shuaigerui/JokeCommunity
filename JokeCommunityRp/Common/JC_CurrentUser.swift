@@ -13,6 +13,7 @@ final class JC_CurrentUser {
 
     static let testEmail = "test@gmail.com"
     static let testPassword = "123456"
+    static let postPublishCoinCost = 10
 
     private(set) var user: JC_UserModel?
 
@@ -150,7 +151,7 @@ final class JC_CurrentUser {
         case .test:
             if let data = UserDefaults.standard.data(forKey: Keys.testUserProfile),
                let stored = try? JSONDecoder().decode(StoredUser.self, from: data) {
-                user = stored.toUserModel()
+                user = userWithResolvedAvatar(stored.toUserModel(), avatarPath: stored.avatarPath)
             } else {
                 user = JC_UserData.testUser
             }
@@ -160,7 +161,7 @@ final class JC_CurrentUser {
                 clearSession()
                 return
             }
-            user = stored.toUserModel()
+            user = userWithResolvedAvatar(stored.toUserModel(), avatarPath: stored.avatarPath)
         }
     }
 
@@ -180,7 +181,7 @@ final class JC_CurrentUser {
         if let stored = loadStoredUser(),
            stored.email.lowercased() == normalizedEmail,
            stored.password == normalizedPassword {
-            user = stored.toUserModel()
+            user = userWithResolvedAvatar(stored.toUserModel(), avatarPath: stored.avatarPath)
             UserDefaults.standard.set(true, forKey: Keys.isLoggedIn)
             UserDefaults.standard.set(LoginType.registered.rawValue, forKey: Keys.loginType)
             return true
@@ -196,10 +197,12 @@ final class JC_CurrentUser {
         avatar: UIImage?
     ) {
         let trimmedNickname = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         let userId = "user_reg_\(UUID().uuidString.prefix(8))"
         let avatarPath = saveAvatar(avatar, userId: userId)
 
-        let model = JC_UserModel(
+        // 新注册账号：独立 JC_UserModel，不复用、不写入 testUser / testUserProfile
+        var model = JC_UserModel(
             userId: userId,
             nickname: trimmedNickname.isEmpty ? "New User" : trimmedNickname,
             gender: .female,
@@ -208,12 +211,13 @@ final class JC_CurrentUser {
             friendCount: 0,
             likeCount: 0,
             coinCount: 0,
-            avatar: avatar,
-            email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+            avatar: nil,
+            email: normalizedEmail,
             password: password,
             isBlock: false,
             followingUserIds: []
         )
+        model = userWithResolvedAvatar(model, avatarPath: avatarPath, fallback: avatar)
 
         applyLogin(user: model, type: .registered, avatarPath: avatarPath)
     }
@@ -242,10 +246,56 @@ final class JC_CurrentUser {
         clearSession()
     }
 
+    func deleteAccount() {
+        if let user {
+            deleteAvatarFiles(userId: user.userId, path: currentStoredAvatarPath())
+        }
+
+        JC_PostStore.shared.clearAllLocalData()
+        JC_ChatStore.shared.clearAllData()
+        clearSession()
+
+        NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
+        NotificationCenter.default.post(name: .jcPostsDidChange, object: nil)
+        NotificationCenter.default.post(name: .jcChatDidChange, object: nil)
+        NotificationCenter.default.post(name: .jcBlockedUsersDidChange, object: nil)
+    }
+
+    var coinCount: Int {
+        user?.coinCount ?? 0
+    }
+
+    var hasEnoughCoinsForPost: Bool {
+        coinCount >= Self.postPublishCoinCost
+    }
+
     @discardableResult
     func publishPost(content: String, media: JC_HomePostMedia) -> Bool {
-        guard let user else { return false }
-        return JC_PostStore.shared.addUserPost(content: content, media: media, author: user)
+        guard let user, user.coinCount >= Self.postPublishCoinCost else { return false }
+        guard JC_PostStore.shared.addUserPost(content: content, media: media, author: user) else {
+            return false
+        }
+        return spendCoins(Self.postPublishCoinCost)
+    }
+
+    @discardableResult
+    func spendCoins(_ amount: Int) -> Bool {
+        guard var model = user, amount > 0, model.coinCount >= amount else { return false }
+        model.coinCount -= amount
+        user = model
+        persistProfile(avatarPath: currentStoredAvatarPath())
+        NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
+        return true
+    }
+
+    @discardableResult
+    func addCoins(_ amount: Int) -> Int? {
+        guard var model = user, amount > 0 else { return nil }
+        model.coinCount += amount
+        user = model
+        persistProfile(avatarPath: currentStoredAvatarPath())
+        NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
+        return model.coinCount
     }
 
     func updateProfile(nickname: String, bio: String, gender: JC_UserGender, avatar: UIImage?) {
@@ -272,9 +322,20 @@ final class JC_CurrentUser {
             model.avatar = cached
         }
 
-        user = model
-        persistProfile(avatarPath: avatarPath)
+        let resolvedPath = resolvedStoredAvatarPath(userId: model.userId, explicitPath: avatarPath)
+        user = userWithResolvedAvatar(model, avatarPath: resolvedPath)
+        persistProfile(avatarPath: resolvedPath)
         NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
+    }
+
+    /// 从磁盘重新加载当前用户头像（内存中 avatar 丢失时可在页面展示前调用）
+    func refreshCurrentUserAvatar() {
+        guard var model = user else { return }
+        let path = currentStoredAvatarPath()
+        if let image = loadAvatar(path: path, userId: model.userId) {
+            model.avatar = image
+            user = model
+        }
     }
 
     func showMainInterface(in window: UIWindow?) {
@@ -288,18 +349,28 @@ final class JC_CurrentUser {
     }
 
     private func applyLogin(user: JC_UserModel, type: LoginType, avatarPath: String?) {
-        self.user = user
+        let resolvedPath = resolvedStoredAvatarPath(userId: user.userId, explicitPath: avatarPath)
+        self.user = userWithResolvedAvatar(user, avatarPath: resolvedPath)
         UserDefaults.standard.set(true, forKey: Keys.isLoggedIn)
         UserDefaults.standard.set(type.rawValue, forKey: Keys.loginType)
 
-        if type == .test {
+        switch type {
+        case .test:
             UserDefaults.standard.removeObject(forKey: Keys.storedUser)
-        } else {
-            let stored = StoredUser(user: user, avatarPath: avatarPath)
-            if let data = try? JSONEncoder().encode(stored) {
-                UserDefaults.standard.set(data, forKey: Keys.storedUser)
-            }
+            persistStoredUser(self.user!, avatarPath: resolvedPath, key: Keys.testUserProfile)
+        case .registered, .apple:
+            // 与测试账号资料隔离，避免注册信息覆盖 Angela 测试号
+            UserDefaults.standard.removeObject(forKey: Keys.testUserProfile)
+            persistStoredUser(self.user!, avatarPath: resolvedPath, key: Keys.storedUser)
         }
+
+        NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
+    }
+
+    private func persistStoredUser(_ user: JC_UserModel, avatarPath: String?, key: String) {
+        let stored = StoredUser(user: user, avatarPath: avatarPath)
+        guard let data = try? JSONEncoder().encode(stored) else { return }
+        UserDefaults.standard.set(data, forKey: key)
     }
 
     private func clearSession() {
@@ -327,26 +398,52 @@ final class JC_CurrentUser {
         guard let typeRaw = UserDefaults.standard.string(forKey: Keys.loginType),
               let type = LoginType(rawValue: typeRaw) else { return }
 
-        let stored = StoredUser(user: user, avatarPath: avatarPath)
-        guard let data = try? JSONEncoder().encode(stored) else { return }
-
         switch type {
         case .test:
-            UserDefaults.standard.set(data, forKey: Keys.testUserProfile)
+            persistStoredUser(user, avatarPath: avatarPath, key: Keys.testUserProfile)
         case .registered, .apple:
-            UserDefaults.standard.set(data, forKey: Keys.storedUser)
+            persistStoredUser(user, avatarPath: avatarPath, key: Keys.storedUser)
         }
     }
 
     private func currentStoredAvatarPath() -> String? {
         if let stored = loadStoredUser() {
-            return stored.avatarPath
+            return resolvedStoredAvatarPath(userId: stored.userId, explicitPath: stored.avatarPath)
         }
         if let data = UserDefaults.standard.data(forKey: Keys.testUserProfile),
            let stored = try? JSONDecoder().decode(StoredUser.self, from: data) {
-            return stored.avatarPath
+            return resolvedStoredAvatarPath(userId: stored.userId, explicitPath: stored.avatarPath)
         }
         return nil
+    }
+
+    private func userWithResolvedAvatar(
+        _ model: JC_UserModel,
+        avatarPath: String?,
+        fallback: UIImage? = nil
+    ) -> JC_UserModel {
+        var updated = model
+        if let image = loadAvatar(path: avatarPath, userId: model.userId) {
+            updated.avatar = image
+        } else if updated.avatar == nil {
+            updated.avatar = fallback
+        }
+        return updated
+    }
+
+    private func resolvedStoredAvatarPath(userId: String, explicitPath: String?) -> String? {
+        if FileManager.default.fileExists(atPath: avatarFileURL(for: userId).path) {
+            return avatarFileName(for: userId)
+        }
+        return explicitPath
+    }
+
+    private func avatarFileName(for userId: String) -> String {
+        "\(userId).png"
+    }
+
+    private func avatarFileURL(for userId: String) -> URL {
+        avatarsDirectoryURL().appendingPathComponent(avatarFileName(for: userId))
     }
 
     private func loadStoredUser() -> StoredUser? {
@@ -355,26 +452,54 @@ final class JC_CurrentUser {
     }
 
     private func saveAvatar(_ image: UIImage?, userId: String) -> String? {
-        guard let image else { return nil }
-        let data = image.pngData() ?? image.jpegData(compressionQuality: 0.9)
-        guard let data else { return nil }
+        guard let image, let data = normalizedAvatarData(from: image) else { return nil }
 
         let directory = avatarsDirectoryURL()
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let fileURL = directory.appendingPathComponent("\(userId).png")
+        let fileURL = avatarFileURL(for: userId)
         do {
             try data.write(to: fileURL, options: .atomic)
-            return fileURL.path
+            return avatarFileName(for: userId)
         } catch {
             return nil
         }
     }
 
+    private func normalizedAvatarData(from image: UIImage) -> Data? {
+        let maxSide: CGFloat = 800
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return nil }
+
+        let scale = min(1, maxSide / max(size.width, size.height))
+        let targetSize = CGSize(width: size.width * scale, height: size.height * scale)
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let rendered = UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return rendered.jpegData(compressionQuality: 0.88) ?? rendered.pngData()
+    }
+
     fileprivate func loadAvatar(path: String?, userId: String) -> UIImage? {
-        if let path, FileManager.default.fileExists(atPath: path),
-           let image = UIImage(contentsOfFile: path) {
+        var candidateURLs: [URL] = [avatarFileURL(for: userId)]
+
+        if let path, !path.isEmpty {
+            if path.hasPrefix("/") {
+                candidateURLs.insert(URL(fileURLWithPath: path), at: 0)
+            } else {
+                candidateURLs.insert(avatarsDirectoryURL().appendingPathComponent(path), at: 0)
+            }
+        }
+
+        for url in candidateURLs {
+            guard FileManager.default.fileExists(atPath: url.path),
+                  let image = UIImage(contentsOfFile: url.path) else {
+                continue
+            }
             return image
         }
+
         if userId == JC_UserData.testUser.userId {
             return JC_UserData.testUser.avatar
         }
@@ -384,6 +509,16 @@ final class JC_CurrentUser {
     private func avatarsDirectoryURL() -> URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("avatars", isDirectory: true)
+    }
+
+    private func deleteAvatarFiles(userId: String, path: String?) {
+        if let path, path.hasPrefix("/"), FileManager.default.fileExists(atPath: path) {
+            try? FileManager.default.removeItem(atPath: path)
+        }
+        let fileURL = avatarFileURL(for: userId)
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
     }
 
 }

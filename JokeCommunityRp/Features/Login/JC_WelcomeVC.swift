@@ -9,6 +9,11 @@ import UIKit
 
 class JC_WelcomeVC: JC_BaseVC {
 
+    private enum LegalURL {
+        static let userAgreement = "https://docs.google.com/document/d/1zsHub5Kdsmgz56SMhPKk3zrEptY2lM-ijw8VJUFhsws/edit?usp=sharing"
+        static let privacyPolicy = "https://docs.google.com/document/d/1_EXH4uyMBDmJuYYx2_6Bd-n2BVB1EYrenWQLYuWvP2U/edit?usp=sharing"
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -20,14 +25,27 @@ class JC_WelcomeVC: JC_BaseVC {
     }
 
     private func setupUI() {
-        view.addSubview(topImageView)
-        view.addSubview(titleImageView)
-        view.addSubview(appleButton)
-        view.addSubview(signupButton)
-        view.addSubview(logInButton)
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        contentView.addSubview(topImageView)
+        contentView.addSubview(titleImageView)
+        contentView.addSubview(appleButton)
+        contentView.addSubview(signupButton)
+        contentView.addSubview(logInButton)
+        contentView.addSubview(agreementTextView)
 
+        scrollView.snp.makeConstraints {
+            $0.left.right.top.equalToSuperview()
+            $0.bottom.top.equalTo(view.safeAreaLayoutGuide)
+        }
+        
+        contentView.snp.makeConstraints {
+            $0.edges.equalToSuperview()
+            $0.width.equalTo(view.frame.width)
+        }
+        
         topImageView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(100)
+            make.top.equalToSuperview().offset(100)
             make.centerX.equalToSuperview()
             make.width.equalTo(258)
             make.height.equalTo(295)
@@ -57,6 +75,52 @@ class JC_WelcomeVC: JC_BaseVC {
             make.centerY.width.height.equalTo(signupButton)
             make.trailing.equalTo(appleButton)
         }
+
+        agreementTextView.snp.makeConstraints { make in
+            make.top.equalTo(signupButton.snp.bottom).offset(28)
+            make.leading.trailing.equalToSuperview().inset(30)
+            make.bottom.equalToSuperview().offset(-16)
+        }
+    }
+
+    private func makeAgreementAttributedText() -> NSAttributedString {
+        let fullText = "By signing up, you agree to the User Agreement & Privacy Policy"
+        let userAgreementText = "User Agreement"
+        let privacyPolicyText = "Privacy Policy"
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineSpacing = 4
+
+        let baseAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 12),
+            .foregroundColor: UIColor(hex: "#666666"),
+            .paragraphStyle: paragraph
+        ]
+
+        let attributed = NSMutableAttributedString(string: fullText, attributes: baseAttributes)
+
+        let linkAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 12, weight: .medium),
+            .foregroundColor: UIColor(hex: "#333333"),
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
+
+        if let range = fullText.range(of: userAgreementText),
+           let url = URL(string: LegalURL.userAgreement) {
+            let nsRange = NSRange(range, in: fullText)
+            attributed.addAttributes(linkAttributes, range: nsRange)
+            attributed.addAttribute(.link, value: url, range: nsRange)
+        }
+
+        if let range = fullText.range(of: privacyPolicyText),
+           let url = URL(string: LegalURL.privacyPolicy) {
+            let nsRange = NSRange(range, in: fullText)
+            attributed.addAttributes(linkAttributes, range: nsRange)
+            attributed.addAttribute(.link, value: url, range: nsRange)
+        }
+
+        return attributed
     }
     
     @objc private func clickSignupButton() {
@@ -72,6 +136,19 @@ class JC_WelcomeVC: JC_BaseVC {
         JC_CurrentUser.shared.showMainInterface(in: view.window)
     }
 
+    private lazy var scrollView: UIScrollView = {
+        let v = UIScrollView()
+        v.showsVerticalScrollIndicator = false
+        v.alwaysBounceVertical = true
+        v.contentInsetAdjustmentBehavior = .never
+        return v
+    }()
+    private lazy var contentView: UIView = {
+        let v = UIView()
+        v.backgroundColor = .clear
+        return v
+    }()
+    
     private let topImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.image = UIImage(named: "welcome_top")
@@ -98,4 +175,34 @@ class JC_WelcomeVC: JC_BaseVC {
         makeImageButton(imageName: "login_title", contentInsets: UIEdgeInsets(top: 17, left: 40, bottom: 17, right: 40))
     }()
 
+    private lazy var agreementTextView: UITextView = {
+        let textView = UITextView()
+        textView.backgroundColor = .clear
+        textView.isEditable = false
+        textView.isScrollEnabled = false
+        textView.isSelectable = true
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.delegate = self
+        textView.attributedText = makeAgreementAttributedText()
+        textView.linkTextAttributes = [
+            .foregroundColor: UIColor(hex: "#333333"),
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
+        return textView
+    }()
+
+}
+
+extension JC_WelcomeVC: UITextViewDelegate {
+
+    func textView(
+        _ textView: UITextView,
+        shouldInteractWith URL: URL,
+        in characterRange: NSRange,
+        interaction: UITextItemInteraction
+    ) -> Bool {
+        UIApplication.shared.open(URL, options: [:], completionHandler: nil)
+        return false
+    }
 }

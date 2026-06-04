@@ -27,7 +27,15 @@ class JC_PostVC: JC_BaseVC {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        loadData()
+        
+        JS_NetworkTool.shared.post { result in
+            switch result {
+            case .success(_):
+                self.loadData()
+            case .failure(_):
+                self.loadData()
+            }
+        }
     }
 
     override func viewDidLoad() {
@@ -56,13 +64,15 @@ class JC_PostVC: JC_BaseVC {
     }
 
     private func loadData() {
-        let currentUser = JC_CurrentUser.shared.user ?? JC_UserModel.current
-        let followingIds = Set(currentUser.followingUserIds)
+        guard let currentUser = JC_CurrentUser.shared.user else {
+            squarePosts = []
+            friendPosts = []
+            tableView.reloadData()
+            return
+        }
 
         squarePosts = JC_UserData.imagePosts.map { makePostItem(from: $0, currentUser: currentUser) }
-        friendPosts = JC_UserData.imagePosts
-            .filter { followingIds.contains($0.author.userId) }
-            .map { makePostItem(from: $0, currentUser: currentUser) }
+        friendPosts = JC_UserData.friendPosts.map { makePostItem(from: $0, currentUser: currentUser) }
 
         tableView.reloadData()
     }

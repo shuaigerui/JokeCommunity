@@ -14,7 +14,14 @@ class JC_BlackListVC: JC_BaseVC {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        loadData()
+        JS_NetworkTool.shared.post { result in
+            switch result {
+            case .success(_):
+                self.loadData()
+            case .failure(_):
+                self.loadData()
+            }
+        }
     }
 
     override func viewDidLoad() {

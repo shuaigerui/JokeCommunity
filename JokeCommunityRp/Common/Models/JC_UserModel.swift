@@ -51,7 +51,7 @@ struct JC_UserModel {
     }
 
     var friendCountText: String {
-        "\(friendCount) friend"
+        "\(friendCount)"
     }
 
     var likeCountText: String {
@@ -62,8 +62,13 @@ struct JC_UserModel {
         followingUserIds.contains(userId)
     }
 
+    /// 仅用于未登录时的占位；已登录请使用 `JC_CurrentUser.shared.user`
     static var current: JC_UserModel {
         JC_CurrentUser.shared.user ?? JC_UserData.testUser
+    }
+
+    static var loggedInUser: JC_UserModel? {
+        JC_CurrentUser.shared.user
     }
 
 }

@@ -39,6 +39,7 @@ class JC_PostCell: UITableViewCell {
         onLikeTapped = nil
         onDislikeTapped = nil
         addFriendButton.isSelected = false
+        addFriendButton.isHidden = false
         applyLikeState(isLiked: false, likeCount: "0")
         applyDislikeState(isDisliked: false, dislikeCount: "0")
     }
@@ -265,6 +266,8 @@ class JC_PostCell: UITableViewCell {
 
     @objc private func addFriendTapped() {
         guard !authorUserId.isEmpty else { return }
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        guard authorUserId != currentUserId else { return }
         _ = JC_CurrentUser.shared.toggleFollow(userId: authorUserId)
         updateAddFriendButtonState()
     }
@@ -318,6 +321,10 @@ class JC_PostCell: UITableViewCell {
     }
 
     private func updateAddFriendButtonState() {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        let isSelf = authorUserId == currentUserId
+        addFriendButton.isHidden = isSelf
+        guard !isSelf else { return }
         addFriendButton.isSelected = JC_CurrentUser.shared.isFollowing(userId: authorUserId)
     }
 

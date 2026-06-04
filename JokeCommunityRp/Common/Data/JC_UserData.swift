@@ -15,9 +15,9 @@ enum JC_UserData {
         gender: .female,
         age: 20,
         bio: "This is my first time sharing a joke, I .......",
-        friendCount: 950,
-        likeCount: 1000,
-        coinCount: 120,
+        friendCount: 2,
+        likeCount: 10,
+        coinCount: 100,
         avatar: bundleImage(name: "avatar_01", directory: "Avatar"),
         email: "test@gmail.com",
         password: "123456",
@@ -158,13 +158,39 @@ enum JC_UserData {
         makePosts()
     }
 
+    /// 广场 feed 作者：5 位本地用户 + 当前登录用户；注册账号不包含 testUser
+    private static var feedAuthorIds: Set<String> {
+        var ids = Set(localUsers.map(\.userId))
+        if let current = JC_CurrentUser.shared.user {
+            ids.insert(current.userId)
+        }
+        return ids
+    }
+
+    private static var includesTestUserInFeed: Bool {
+        JC_CurrentUser.shared.user?.userId == testUser.userId
+    }
+
+    static func isPostInAppFeed(_ post: JC_PostModel) -> Bool {
+        let authorId = post.author.userId
+        if authorId == testUser.userId {
+            return includesTestUserInFeed
+        }
+        return feedAuthorIds.contains(authorId)
+    }
+
+    /// 首页 / 广场可见动态（本地 5 用户 + 当前用户；注册账号排除 testUser）
+    static var feedPosts: [JC_PostModel] {
+        posts.filter { isPostInAppFeed($0) }
+    }
+
     static var squarePosts: [JC_PostModel] {
-        posts
+        feedPosts
     }
 
     static var friendPosts: [JC_PostModel] {
-        let followingIds = Set(JC_UserModel.current.followingUserIds)
-        return posts.filter { followingIds.contains($0.author.userId) }
+        let followingIds = Set(JC_CurrentUser.shared.user?.followingUserIds ?? [])
+        return feedPosts.filter { followingIds.contains($0.author.userId) }
     }
 
     static func isFollowing(userId: String, by user: JC_UserModel = .current) -> Bool {
@@ -180,11 +206,11 @@ enum JC_UserData {
     }
 
     static var videoPosts: [JC_PostModel] {
-        posts.filter { $0.media.isVideo }
+        feedPosts.filter { $0.media.isVideo }
     }
 
     static var imagePosts: [JC_PostModel] {
-        posts.filter { !$0.media.isVideo }
+        feedPosts.filter { !$0.media.isVideo }
     }
 
     private static func makePosts() -> [JC_PostModel] {
@@ -259,7 +285,10 @@ enum JC_UserData {
         "I'm reading a book about anti-gravity. It's impossible to put down."
     ]
 
-    private static let postLikeCounts = ["100W", "56W", "88W", "32W", "120W", "45W", "67W", "91W"]
+    private static let postLikeCounts = ["15", "5", "8", "3", "12", "4", "6", "9"]
+
+    private static let postDislikeCounts = ["3", "2", "1", "2", "3", "6", "4", "5"]
+
 
     private static func appendVideoPost(
         to list: inout [JC_PostModel],
@@ -277,7 +306,7 @@ enum JC_UserData {
                 content: postContents[contentIndex % postContents.count],
                 media: .video(videoURL),
                 likeCount: postLikeCounts[likeIndex % postLikeCounts.count],
-                dislikeCount: "0",
+                dislikeCount: postDislikeCounts[likeIndex % postDislikeCounts.count],
                 isDisliked: false,
                 relationText: relationText(for: author),
                 isReport: false,
@@ -306,7 +335,7 @@ enum JC_UserData {
                 content: postContents[contentIndex % postContents.count],
                 media: media,
                 likeCount: postLikeCounts[likeIndex % postLikeCounts.count],
-                dislikeCount: "0",
+                dislikeCount: postDislikeCounts[likeIndex % postDislikeCounts.count],
                 isDisliked: false,
                 relationText: relationText(for: author),
                 isReport: false,

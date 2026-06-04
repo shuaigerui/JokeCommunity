@@ -78,6 +78,12 @@ final class JC_ChatStore {
         notifyChatDidChange()
     }
 
+    func clearAllData() {
+        messages.removeAll()
+        UserDefaults.standard.removeObject(forKey: Keys.messages)
+        notifyChatDidChange()
+    }
+
     func conversationListItems() -> [JC_ChatMessage] {
         let grouped = Dictionary(grouping: messages, by: \.peerUserId)
         let summaries: [(peerUserId: String, preview: String, updatedAt: TimeInterval)] = grouped.compactMap { peerUserId, list in
