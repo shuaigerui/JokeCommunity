@@ -6,8 +6,12 @@
 //
 
 import UIKit
+import AuthenticationServices
+import Toast_Swift
 
 class JC_WelcomeVC: JC_BaseVC {
+
+    private var appleSignInController: ASAuthorizationController?
 
     private enum LegalURL {
         static let userAgreement = "https://docs.google.com/document/d/1zsHub5Kdsmgz56SMhPKk3zrEptY2lM-ijw8VJUFhsws/edit?usp=sharing"
@@ -132,8 +136,50 @@ class JC_WelcomeVC: JC_BaseVC {
     }
 
     @objc private func clickAppleButton() {
-        JC_CurrentUser.shared.loginWithApple()
-        JC_CurrentUser.shared.showMainInterface(in: view.window)
+        let provider = ASAuthorizationAppleIDProvider()
+        let request = provider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        appleSignInController = controller
+        controller.performRequests()
+    }
+
+    private func handleAppleAuthorization(_ authorization: ASAuthorization) {
+        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            view.makeToast("Apple sign in failed")
+            return
+        }
+
+        let appleCredential = makeAppleCredential(from: credential)
+        switch JC_CurrentUser.shared.processAppleSignIn(appleCredential) {
+        case .completed:
+            JC_CurrentUser.shared.showMainInterface(in: view.window)
+        case .needsProfileSetup(let setupCredential):
+            navigationController?.pushViewController(
+                JC_SetupInfoVC(appleCredential: setupCredential),
+                animated: true
+            )
+        }
+    }
+
+    private func makeAppleCredential(from credential: ASAuthorizationAppleIDCredential) -> JC_AppleSignInCredential {
+        var nameComponents: [String] = []
+        if let givenName = credential.fullName?.givenName, !givenName.isEmpty {
+            nameComponents.append(givenName)
+        }
+        if let familyName = credential.fullName?.familyName, !familyName.isEmpty {
+            nameComponents.append(familyName)
+        }
+        let fullName = nameComponents.joined(separator: " ")
+
+        return JC_AppleSignInCredential(
+            userIdentifier: credential.user,
+            email: credential.email,
+            fullName: fullName.isEmpty ? nil : fullName
+        )
     }
 
     private lazy var scrollView: UIScrollView = {
@@ -192,6 +238,35 @@ class JC_WelcomeVC: JC_BaseVC {
         return textView
     }()
 
+}
+
+extension JC_WelcomeVC: ASAuthorizationControllerDelegate {
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        appleSignInController = nil
+        handleAppleAuthorization(authorization)
+    }
+
+    func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithError error: Error
+    ) {
+        appleSignInController = nil
+        if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+            return
+        }
+        view.makeToast("Apple sign in failed")
+    }
+}
+
+extension JC_WelcomeVC: ASAuthorizationControllerPresentationContextProviding {
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        view.window ?? UIWindow()
+    }
 }
 
 extension JC_WelcomeVC: UITextViewDelegate {

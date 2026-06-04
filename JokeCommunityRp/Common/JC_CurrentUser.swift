@@ -51,8 +51,21 @@ final class JC_CurrentUser {
         let isBlock: Bool
         let followingUserIds: [String]
         let avatarPath: String?
+        let appleUserIdentifier: String?
+        let isProfileCompleted: Bool
 
-        init(user: JC_UserModel, avatarPath: String?) {
+        private enum CodingKeys: String, CodingKey {
+            case userId, nickname, genderRaw, age, bio, friendCount, likeCount, coinCount
+            case email, password, isBlock, followingUserIds, avatarPath
+            case appleUserIdentifier, isProfileCompleted
+        }
+
+        init(
+            user: JC_UserModel,
+            avatarPath: String?,
+            appleUserIdentifier: String? = nil,
+            isProfileCompleted: Bool = true
+        ) {
             userId = user.userId
             nickname = user.nickname
             genderRaw = user.gender == .male ? "male" : "female"
@@ -66,6 +79,27 @@ final class JC_CurrentUser {
             isBlock = user.isBlock
             followingUserIds = user.followingUserIds
             self.avatarPath = avatarPath
+            self.appleUserIdentifier = appleUserIdentifier
+            self.isProfileCompleted = isProfileCompleted
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            userId = try container.decode(String.self, forKey: .userId)
+            nickname = try container.decode(String.self, forKey: .nickname)
+            genderRaw = try container.decode(String.self, forKey: .genderRaw)
+            age = try container.decode(Int.self, forKey: .age)
+            bio = try container.decode(String.self, forKey: .bio)
+            friendCount = try container.decode(Int.self, forKey: .friendCount)
+            likeCount = try container.decode(Int.self, forKey: .likeCount)
+            coinCount = try container.decode(Int.self, forKey: .coinCount)
+            email = try container.decode(String.self, forKey: .email)
+            password = try container.decode(String.self, forKey: .password)
+            isBlock = try container.decode(Bool.self, forKey: .isBlock)
+            followingUserIds = try container.decode([String].self, forKey: .followingUserIds)
+            avatarPath = try container.decodeIfPresent(String.self, forKey: .avatarPath)
+            appleUserIdentifier = try container.decodeIfPresent(String.self, forKey: .appleUserIdentifier)
+            isProfileCompleted = try container.decodeIfPresent(Bool.self, forKey: .isProfileCompleted) ?? true
         }
 
         func toUserModel() -> JC_UserModel {
@@ -155,9 +189,19 @@ final class JC_CurrentUser {
             } else {
                 user = JC_UserData.testUser
             }
-        case .registered, .apple:
+        case .registered:
             guard let data = UserDefaults.standard.data(forKey: Keys.storedUser),
-                  let stored = try? JSONDecoder().decode(StoredUser.self, from: data) else {
+                  let stored = try? JSONDecoder().decode(StoredUser.self, from: data),
+                  stored.isProfileCompleted else {
+                clearSession()
+                return
+            }
+            user = userWithResolvedAvatar(stored.toUserModel(), avatarPath: stored.avatarPath)
+        case .apple:
+            guard let data = UserDefaults.standard.data(forKey: Keys.storedUser),
+                  let stored = try? JSONDecoder().decode(StoredUser.self, from: data),
+                  stored.isProfileCompleted,
+                  stored.appleUserIdentifier != nil else {
                 clearSession()
                 return
             }
@@ -174,7 +218,13 @@ final class JC_CurrentUser {
 
         if normalizedEmail == Self.testEmail.lowercased(),
            normalizedPassword == Self.testPassword {
-            applyLogin(user: JC_UserData.testUser, type: .test, avatarPath: nil)
+            applyLogin(
+                user: JC_UserData.testUser,
+                type: .test,
+                avatarPath: nil,
+                appleUserIdentifier: nil,
+                isProfileCompleted: true
+            )
             return true
         }
 
@@ -219,14 +269,45 @@ final class JC_CurrentUser {
         )
         model = userWithResolvedAvatar(model, avatarPath: avatarPath, fallback: avatar)
 
-        applyLogin(user: model, type: .registered, avatarPath: avatarPath)
+        applyLogin(
+            user: model,
+            type: .registered,
+            avatarPath: avatarPath,
+            appleUserIdentifier: nil,
+            isProfileCompleted: true
+        )
     }
 
-    func loginWithApple() {
-        let userId = "user_apple_\(UUID().uuidString.prefix(8))"
-        let model = JC_UserModel(
+    func processAppleSignIn(_ credential: JC_AppleSignInCredential) -> JC_AppleSignInOutcome {
+        if let stored = loadStoredUser(),
+           stored.appleUserIdentifier == credential.userIdentifier,
+           stored.isProfileCompleted {
+            let model = userWithResolvedAvatar(stored.toUserModel(), avatarPath: stored.avatarPath)
+            applyLogin(
+                user: model,
+                type: .apple,
+                avatarPath: stored.avatarPath,
+                appleUserIdentifier: credential.userIdentifier,
+                isProfileCompleted: true
+            )
+            return .completed
+        }
+        return .needsProfileSetup(credential)
+    }
+
+    func completeAppleProfile(
+        credential: JC_AppleSignInCredential,
+        nickname: String,
+        avatar: UIImage?
+    ) {
+        let trimmedNickname = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let userId = appleUserId(from: credential.userIdentifier)
+        let avatarPath = saveAvatar(avatar, userId: userId)
+        let normalizedEmail = credential.email?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        var model = JC_UserModel(
             userId: userId,
-            nickname: "Apple User",
+            nickname: trimmedNickname.isEmpty ? "Apple User" : trimmedNickname,
             gender: .female,
             age: 18,
             bio: "",
@@ -234,12 +315,20 @@ final class JC_CurrentUser {
             likeCount: 0,
             coinCount: 0,
             avatar: nil,
-            email: "",
+            email: normalizedEmail,
             password: "",
             isBlock: false,
             followingUserIds: []
         )
-        applyLogin(user: model, type: .apple, avatarPath: nil)
+        model = userWithResolvedAvatar(model, avatarPath: avatarPath, fallback: avatar)
+
+        applyLogin(
+            user: model,
+            type: .apple,
+            avatarPath: avatarPath,
+            appleUserIdentifier: credential.userIdentifier,
+            isProfileCompleted: true
+        )
     }
 
     func logout() {
@@ -348,7 +437,13 @@ final class JC_CurrentUser {
         window?.rootViewController = nav
     }
 
-    private func applyLogin(user: JC_UserModel, type: LoginType, avatarPath: String?) {
+    private func applyLogin(
+        user: JC_UserModel,
+        type: LoginType,
+        avatarPath: String?,
+        appleUserIdentifier: String? = nil,
+        isProfileCompleted: Bool = true
+    ) {
         let resolvedPath = resolvedStoredAvatarPath(userId: user.userId, explicitPath: avatarPath)
         self.user = userWithResolvedAvatar(user, avatarPath: resolvedPath)
         UserDefaults.standard.set(true, forKey: Keys.isLoggedIn)
@@ -357,20 +452,58 @@ final class JC_CurrentUser {
         switch type {
         case .test:
             UserDefaults.standard.removeObject(forKey: Keys.storedUser)
-            persistStoredUser(self.user!, avatarPath: resolvedPath, key: Keys.testUserProfile)
-        case .registered, .apple:
-            // 与测试账号资料隔离，避免注册信息覆盖 Angela 测试号
+            persistStoredUser(
+                self.user!,
+                avatarPath: resolvedPath,
+                key: Keys.testUserProfile,
+                appleUserIdentifier: nil,
+                isProfileCompleted: true
+            )
+        case .registered:
             UserDefaults.standard.removeObject(forKey: Keys.testUserProfile)
-            persistStoredUser(self.user!, avatarPath: resolvedPath, key: Keys.storedUser)
+            persistStoredUser(
+                self.user!,
+                avatarPath: resolvedPath,
+                key: Keys.storedUser,
+                appleUserIdentifier: nil,
+                isProfileCompleted: true
+            )
+        case .apple:
+            UserDefaults.standard.removeObject(forKey: Keys.testUserProfile)
+            persistStoredUser(
+                self.user!,
+                avatarPath: resolvedPath,
+                key: Keys.storedUser,
+                appleUserIdentifier: appleUserIdentifier,
+                isProfileCompleted: isProfileCompleted
+            )
         }
 
         NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
     }
 
-    private func persistStoredUser(_ user: JC_UserModel, avatarPath: String?, key: String) {
-        let stored = StoredUser(user: user, avatarPath: avatarPath)
+    private func persistStoredUser(
+        _ user: JC_UserModel,
+        avatarPath: String?,
+        key: String,
+        appleUserIdentifier: String? = nil,
+        isProfileCompleted: Bool = true
+    ) {
+        let stored = StoredUser(
+            user: user,
+            avatarPath: avatarPath,
+            appleUserIdentifier: appleUserIdentifier,
+            isProfileCompleted: isProfileCompleted
+        )
         guard let data = try? JSONEncoder().encode(stored) else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+
+    private func appleUserId(from appleUserIdentifier: String) -> String {
+        let sanitized = appleUserIdentifier
+            .replacingOccurrences(of: ".", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+        return "user_apple_\(sanitized)"
     }
 
     private func clearSession() {

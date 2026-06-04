@@ -30,11 +30,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private func initializeWindow() {
         window = UIWindow(frame: UIScreen.main.bounds)
         JC_CurrentUser.shared.restoreSession()
-        if JC_CurrentUser.shared.isLoggedIn {
-            JC_CurrentUser.shared.showMainInterface(in: window)
-        } else {
-            JC_CurrentUser.shared.showWelcomeInterface(in: window)
+        let launchVC = JC_LaunchVC()
+        launchVC.completion = {
+            if JC_CurrentUser.shared.isLoggedIn {
+                JC_CurrentUser.shared.showMainInterface(in: self.window)
+            } else {
+                JC_CurrentUser.shared.showWelcomeInterface(in: self.window)
+            }
         }
+        window?.rootViewController = launchVC
         window?.makeKeyAndVisible()
     }
 

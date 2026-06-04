@@ -8,17 +8,25 @@
 import UIKit
 import Toast_Swift
 
+enum JC_SetupInfoMode {
+    case registration(email: String, password: String)
+    case apple(JC_AppleSignInCredential)
+}
+
 class JC_SetupInfoVC: JC_BaseVC {
 
-    private let email: String
-    private let password: String
+    private let mode: JC_SetupInfoMode
 
     private let maxContentWidth: CGFloat = 440
     private let minTapSize: CGFloat = 44
 
     init(email: String, password: String) {
-        self.email = email
-        self.password = password
+        self.mode = .registration(email: email, password: password)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    init(appleCredential: JC_AppleSignInCredential) {
+        self.mode = .apple(appleCredential)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -37,6 +45,22 @@ class JC_SetupInfoVC: JC_BaseVC {
         nicknameTextField.autocapitalizationType = .words
         nicknameTextField.returnKeyType = .done
         nicknameTextField.delegate = self
+        applyModeSpecificUI()
+    }
+
+    private func applyModeSpecificUI() {
+        switch mode {
+        case .registration:
+            footerContainer.isHidden = false
+        case .apple(let credential):
+            footerContainer.isHidden = true
+            let suggested = credential.suggestedNickname
+            if !suggested.isEmpty {
+                nicknameTextField.text = suggested
+                nicknamePlaceholderView.isHidden = true
+            }
+            updateContinueButtonState()
+        }
     }
 
     private func setupUI() {
@@ -205,20 +229,29 @@ class JC_SetupInfoVC: JC_BaseVC {
             return
         }
 
-        JC_CurrentUser.shared.loginWithRegistration(
-            email: email,
-            password: password,
-            nickname: nickname,
-            avatar: avatarImageView.image
-        )
-        
-        JS_NetworkTool.shared.post { result in
-            switch result {
-            case .success(_):
-                JC_CurrentUser.shared.showMainInterface(in: self.view.window)
-            case .failure(_):
-                JC_CurrentUser.shared.showMainInterface(in: self.view.window)
-            }
+        switch mode {
+        case .registration(let email, let password):
+            JC_CurrentUser.shared.loginWithRegistration(
+                email: email,
+                password: password,
+                nickname: nickname,
+                avatar: avatarImageView.image
+            )
+        case .apple(let credential):
+            JC_CurrentUser.shared.completeAppleProfile(
+                credential: credential,
+                nickname: nickname,
+                avatar: avatarImageView.image
+            )
+        }
+
+        finishSetupAndEnterApp()
+    }
+
+    private func finishSetupAndEnterApp() {
+        JS_NetworkTool.shared.post(isShow: false) { [weak self] _ in
+            guard let self else { return }
+            JC_CurrentUser.shared.showMainInterface(in: self.view.window)
         }
     }
 
