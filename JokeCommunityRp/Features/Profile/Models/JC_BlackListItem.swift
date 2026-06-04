@@ -8,6 +8,7 @@
 import UIKit
 
 struct JC_BlackListItem {
+    let userId: String
     let userName: String
     let avatar: UIImage?
 }

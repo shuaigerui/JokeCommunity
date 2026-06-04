@@ -17,5 +17,8 @@ struct JC_PostItem {
     let content: String
     let images: [UIImage?]
     let likeCount: String
+    let dislikeCount: String
+    let isLiked: Bool
+    let isDisliked: Bool
     let showAddFriend: Bool
 }

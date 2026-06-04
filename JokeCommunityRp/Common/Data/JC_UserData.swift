@@ -131,16 +131,19 @@ enum JC_UserData {
     }
 
     static func resolvedUser(userId: String) -> JC_UserModel? {
+        var user: JC_UserModel?
         if let current = JC_CurrentUser.shared.user, current.userId == userId {
-            return current
+            user = current
+        } else if let local = localUsers.first(where: { $0.userId == userId }) {
+            user = local
+        } else if userId == testUser.userId {
+            user = JC_CurrentUser.shared.user ?? testUser
         }
-        if let local = localUsers.first(where: { $0.userId == userId }) {
-            return local
+        guard var resolved = user else { return nil }
+        if JC_CurrentUser.shared.isUserBlocked(userId: userId) {
+            resolved.isBlock = true
         }
-        if userId == testUser.userId {
-            return JC_CurrentUser.shared.user ?? testUser
-        }
-        return nil
+        return resolved
     }
 
     static func resolvedAuthor(for post: JC_PostModel) -> JC_UserModel {
@@ -274,9 +277,11 @@ enum JC_UserData {
                 content: postContents[contentIndex % postContents.count],
                 media: .video(videoURL),
                 likeCount: postLikeCounts[likeIndex % postLikeCounts.count],
+                dislikeCount: "0",
+                isDisliked: false,
                 relationText: relationText(for: author),
                 isReport: false,
-                comments: makeComments(for: author)
+                comments: makeComments(for: author, postId: postId)
             )
         )
     }
@@ -301,9 +306,11 @@ enum JC_UserData {
                 content: postContents[contentIndex % postContents.count],
                 media: media,
                 likeCount: postLikeCounts[likeIndex % postLikeCounts.count],
+                dislikeCount: "0",
+                isDisliked: false,
                 relationText: relationText(for: author),
                 isReport: false,
-                comments: makeComments(for: author)
+                comments: makeComments(for: author, postId: postId)
             )
         )
     }
@@ -312,15 +319,38 @@ enum JC_UserData {
         isFollowing(userId: author.userId) ? "Good Friend" : ""
     }
 
-    private static func makeComments(for author: JC_UserModel) -> [JC_PostComment] {
-        let other = allUsers.first { $0.userId != author.userId } ?? testUser
-        return [
-            JC_PostComment(
-                userName: other.nickname,
-                content: "I really like your jokes",
-                avatar: other.avatar
+    private static let commentTexts = [
+        "I really like your jokes!",
+        "This one made my day.",
+        "So relatable — keep them coming.",
+        "Legendary punchline.",
+        "Can't stop laughing at this.",
+        "Sharing this with my friends.",
+        "Your humor is unmatched.",
+        "Need more jokes like this!"
+    ]
+
+    private static func makeComments(for author: JC_UserModel, postId: String) -> [JC_PostComment] {
+        let candidates = allUsers.filter { $0.userId != author.userId }
+        guard !candidates.isEmpty else { return [] }
+
+        let sorted = candidates.sorted {
+            ($0.userId + postId).hashValue < ($1.userId + postId).hashValue
+        }
+        let desiredCount = 2 + abs(postId.hashValue) % 2
+        let count = min(desiredCount, sorted.count)
+
+        return sorted.prefix(count).enumerated().map { index, commenter in
+            let textIndex = abs((postId + commenter.userId + "\(index)").hashValue) % commentTexts.count
+            return JC_PostComment(
+                commentId: "seed_\(postId)_\(commenter.userId)",
+                userId: commenter.userId,
+                userName: commenter.nickname,
+                content: commentTexts[textIndex],
+                avatar: commenter.avatar,
+                isUserAdded: false
             )
-        ]
+        }
     }
 
     private static func bundleImage(name: String, directory: String) -> UIImage? {

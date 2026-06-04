@@ -9,18 +9,31 @@ import UIKit
 
 class JC_BlackListVC: JC_BaseVC {
 
-    private var items: [JC_BlackListItem] = [
-        JC_BlackListItem(userName: "Angela", avatar: nil),
-        JC_BlackListItem(userName: "Angela", avatar: nil),
-        JC_BlackListItem(userName: "Angela", avatar: nil),
-        JC_BlackListItem(userName: "Angela", avatar: nil),
-        JC_BlackListItem(userName: "Angela", avatar: nil)
-    ]
+    private var items: [JC_BlackListItem] = []
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
+    }
+    
+    private func loadData() {
+        items = JC_CurrentUser.shared.blockedUserIdsList.compactMap { userId in
+            let user = JC_UserData.resolvedUser(userId: userId)
+            return JC_BlackListItem(
+                userId: userId,
+                userName: user?.nickname ?? userId,
+                avatar: user?.avatar
+            )
+        }
+        emptyView.isHidden = items.count > 0
+        tableView.reloadData()
     }
 
     private func setupUI() {
@@ -29,7 +42,9 @@ class JC_BlackListVC: JC_BaseVC {
         tableView.register(JC_BlackListCell.self, forCellReuseIdentifier: JC_BlackListCell.reuseIdentifier)
 
         view.addSubview(backButton)
+        view.addSubview(titleView)
         view.addSubview(tableView)
+        view.addSubview(emptyView)
 
         backButton.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide).offset(40)
@@ -37,10 +52,20 @@ class JC_BlackListVC: JC_BaseVC {
             make.width.equalTo(69)
             make.height.equalTo(29)
         }
+        
+        titleView.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.centerY.equalTo(backButton)
+        }
 
         tableView.snp.makeConstraints { make in
             make.top.equalTo(backButton.snp.bottom).offset(36)
             make.leading.trailing.bottom.equalToSuperview()
+        }
+        
+        emptyView.snp.makeConstraints { make in
+            make.centerY.equalToSuperview()
+            make.centerX.equalToSuperview()
         }
     }
 
@@ -49,8 +74,11 @@ class JC_BlackListVC: JC_BaseVC {
     }
 
     private func removeItem(at indexPath: IndexPath) {
+        let userId = items[indexPath.row].userId
+        JC_CurrentUser.shared.unblockUser(userId: userId)
         items.remove(at: indexPath.row)
         tableView.deleteRows(at: [indexPath], with: .fade)
+        emptyView.isHidden = items.count > 0
     }
 
     private let backButton: UIButton = {
@@ -62,6 +90,13 @@ class JC_BlackListVC: JC_BaseVC {
             make.edges.equalToSuperview()
         }
         return button
+    }()
+    
+    private let titleView: UIImageView = {
+        let v = UIImageView()
+        v.image = UIImage(named: "blacklist_title")
+        v.contentMode = .scaleAspectFill
+        return v
     }()
 
     private let tableView: UITableView = {
@@ -77,6 +112,7 @@ class JC_BlackListVC: JC_BaseVC {
         return tableView
     }()
 
+    private var emptyView = JC_EmptyView()
 }
 
 extension JC_BlackListVC: UITableViewDataSource, UITableViewDelegate {

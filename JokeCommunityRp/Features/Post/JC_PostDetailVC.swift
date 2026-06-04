@@ -6,16 +6,13 @@
 //
 
 import UIKit
+import Toast_Swift
 
 class JC_PostDetailVC: JC_BaseVC {
 
     private let post: JC_PostItem
 
-    private var comments: [JC_PostComment] = [
-        JC_PostComment(userName: "Angela", content: "I really like your jokes", avatar: nil),
-        JC_PostComment(userName: "Angela", content: "I really like your jokes", avatar: nil),
-        JC_PostComment(userName: "Angela", content: "I really like your jokes", avatar: nil)
-    ]
+    private var comments: [JC_PostComment] = []
 
     init(post: JC_PostItem) {
         self.post = post
@@ -25,12 +22,23 @@ class JC_PostDetailVC: JC_BaseVC {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         bindActions()
         configureHeader()
+    }
+    
+    private func loadData() {
+        comments = JC_PostStore.shared.comments(for: post.postId)
+        tableView.reloadData()
     }
 
     override func viewDidLayoutSubviews() {
@@ -76,6 +84,7 @@ class JC_PostDetailVC: JC_BaseVC {
 
     private func bindActions() {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
+        infoButton.addTarget(self, action: #selector(clickReport), for: .touchUpInside)
         commentInputView.onSendTapped = { [weak self] text in
             self?.appendComment(text)
         }
@@ -102,14 +111,96 @@ class JC_PostDetailVC: JC_BaseVC {
     }
 
     private func appendComment(_ text: String) {
-        comments.append(JC_PostComment(userName: "Angela", content: text, avatar: nil))
+        let user = JC_CurrentUser.shared.user ?? JC_UserModel.current
+        guard let comment = JC_PostStore.shared.addComment(
+            postId: post.postId,
+            userId: user.userId,
+            userName: user.nickname,
+            content: text
+        ) else { return }
+
+        comments.append(comment)
         let indexPath = IndexPath(row: comments.count - 1, section: 0)
         tableView.insertRows(at: [indexPath], with: .automatic)
         tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
     }
+    
+    private func handleCommentMore(_ comment: JC_PostComment) {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        if comment.userId == currentUserId {
+            presentDeleteCommentConfirmation(for: comment)
+        } else {
+            pushReportComment(comment)
+        }
+    }
+
+    private func presentDeleteCommentConfirmation(for comment: JC_PostComment) {
+        let alert = UIAlertController(
+            title: "Delete Comment",
+            message: "Are you sure you want to delete this comment? This can't be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            self?.deleteComment(comment)
+        })
+        present(alert, animated: true)
+    }
+
+    private func deleteComment(_ comment: JC_PostComment) {
+        guard JC_PostStore.shared.deleteComment(postId: post.postId, commentId: comment.commentId) else { return }
+        if let index = comments.firstIndex(where: { $0.commentId == comment.commentId }) {
+            comments.remove(at: index)
+            tableView.deleteRows(at: [IndexPath(row: index, section: 0)], with: .automatic)
+        } else {
+            loadData()
+        }
+    }
+
+    private func pushReportComment(_ comment: JC_PostComment) {
+        let reportVC = JC_ReportVC(postId: post.postId, commentId: comment.commentId)
+        reportVC.onReportSubmitted = { [weak self] in
+            self?.view.makeToast("Report submitted successfully")
+            self?.loadData()
+        }
+        navigationController?.pushViewController(reportVC, animated: true)
+    }
 
     @objc private func clickBack() {
         navigationController?.popViewController(animated: true)
+    }
+    
+    @objc private func clickReport() {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        if post.authorUserId == currentUserId {
+            presentDeletePostConfirmation()
+        } else {
+            pushReportPost()
+        }
+    }
+
+    private func presentDeletePostConfirmation() {
+        let alert = UIAlertController(
+            title: "Delete Post",
+            message: "Are you sure you want to delete this post? This can't be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            JC_PostStore.shared.deletePost(postId: self.post.postId)
+            self.navigationController?.popViewController(animated: true)
+        })
+        present(alert, animated: true)
+    }
+
+    private func pushReportPost() {
+        let reportVC = JC_ReportVC(postId: post.postId)
+        reportVC.onReportSubmitted = { [weak self] in
+            self?.view.makeToast("Report submitted successfully")
+            self?.navigationController?.popViewController(animated: true)
+        }
+        navigationController?.pushViewController(reportVC, animated: true)
     }
 
     private let headerView = JC_PostDetailHeaderView()
@@ -164,7 +255,11 @@ extension JC_PostDetailVC: UITableViewDataSource, UITableViewDelegate {
         ) as? JC_PostCommentCell else {
             return UITableViewCell()
         }
-        cell.configure(with: comments[indexPath.row])
+        let comment = comments[indexPath.row]
+        cell.configure(with: comment)
+        cell.onMoreTapped = { [weak self] in
+            self?.handleCommentMore(comment)
+        }
         return cell
     }
 

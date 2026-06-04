@@ -9,7 +9,7 @@ import UIKit
 
 class JC_PostDetailHeaderView: UIView {
 
-    static let headerHeight: CGFloat = 400
+    static let headerHeight: CGFloat = 415
 
     var onAvatarTapped: (() -> Void)?
 

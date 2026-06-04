@@ -9,34 +9,83 @@ import UIKit
 
 class JC_ChatVC: JC_BaseVC {
 
-    private let users: [JC_ChatUser] = Array(
-        repeating: JC_ChatUser(name: "Angela", avatar: nil),
-        count: 6
-    )
-
-    private let messages: [JC_ChatMessage] = Array(
-        repeating: JC_ChatMessage(
-            userName: "BOOKER",
-            preview: "This is my first time sharin ........",
-            avatar: nil
-        ),
-        count: 6
-    )
+    private var users: [JC_ChatUser] = []
+    private var messages: [JC_ChatMessage] = []
+    private var chatObserver: NSObjectProtocol?
+    private var profileObserver: NSObjectProtocol?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        loadData()
+        if chatObserver == nil {
+            let center = NotificationCenter.default
+            chatObserver = center.addObserver(
+                forName: .jcChatDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadMessages()
+            }
+            profileObserver = center.addObserver(
+                forName: .jcUserProfileDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadFollowingUsers()
+            }
+        }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadData()
+    }
+
+    private func loadData() {
+        loadFollowingUsers()
+        loadMessages()
+    }
+
+    private func loadFollowingUsers() {
+        let currentUser = JC_CurrentUser.shared.user ?? JC_UserModel.current
+        users = currentUser.followingUserIds.compactMap { userId in
+            guard let user = JC_UserData.resolvedUser(userId: userId) else { return nil }
+            return JC_ChatUser(userId: userId, name: user.nickname, avatar: user.avatar)
+        }
+        updateUserCollectionVisibility()
+        userCollectionView.reloadData()
+    }
+
+    private func updateUserCollectionVisibility() {
+        let hasFollowing = !users.isEmpty
+        userCollectionView.isHidden = !hasFollowing
+        userCollectionView.snp.updateConstraints { make in
+            make.height.equalTo(hasFollowing ? 88 : 0)
+        }
+        sectionTitleLabel.snp.remakeConstraints { make in
+            if hasFollowing {
+                make.top.equalTo(userCollectionView.snp.bottom).offset(20)
+            } else {
+                make.top.equalTo(titleUnderlineView.snp.bottom).offset(20)
+            }
+            make.leading.equalToSuperview().offset(24)
+            make.bottom.equalToSuperview().offset(-12)
+        }
+    }
+
+    private func loadMessages() {
+        messages = JC_ChatStore.shared.conversationListItems()
+        tableView.reloadData()
     }
 
     private func setupUI() {
         view.addSubview(topView)
         view.addSubview(tableView)
+        view.addSubview(emptyView)
 
         topView.addSubview(titleLabel)
         topView.addSubview(titleUnderlineView)
-        topView.addSubview(searchContainerView)
-        searchContainerView.addSubview(searchTextField)
-        topView.addSubview(addButton)
         topView.addSubview(userCollectionView)
         topView.addSubview(sectionTitleLabel)
 
@@ -57,26 +106,8 @@ class JC_ChatVC: JC_BaseVC {
             make.height.equalTo(4)
         }
 
-        searchContainerView.snp.makeConstraints { make in
-            make.top.equalTo(titleUnderlineView.snp.bottom).offset(20)
-            make.leading.equalToSuperview().offset(24)
-            make.trailing.equalTo(addButton.snp.leading).offset(-12)
-            make.height.equalTo(44)
-        }
-
-        searchTextField.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(16)
-            make.centerY.equalToSuperview()
-        }
-
-        addButton.snp.makeConstraints { make in
-            make.centerY.equalTo(searchContainerView)
-            make.trailing.equalToSuperview().offset(-24)
-            make.size.equalTo(44)
-        }
-
         userCollectionView.snp.makeConstraints { make in
-            make.top.equalTo(searchContainerView.snp.bottom).offset(20)
+            make.top.equalTo(titleUnderlineView.snp.bottom).offset(20)
             make.leading.trailing.equalToSuperview()
             make.height.equalTo(88)
         }
@@ -90,6 +121,11 @@ class JC_ChatVC: JC_BaseVC {
         tableView.snp.makeConstraints { make in
             make.top.equalTo(topView.snp.bottom)
             make.leading.trailing.bottom.equalToSuperview()
+        }
+        
+        emptyView.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.centerY.equalToSuperview().offset(40)
         }
 
         userCollectionView.dataSource = self
@@ -121,37 +157,6 @@ class JC_ChatVC: JC_BaseVC {
         view.backgroundColor = UIColor(hex: "#D4FF00")
         view.layer.cornerRadius = 2
         return view
-    }()
-
-    private let searchContainerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .white
-        view.layer.cornerRadius = 22
-        view.layer.masksToBounds = true
-        return view
-    }()
-
-    private let searchTextField: UITextField = {
-        let textField = UITextField()
-        textField.placeholder = "search..."
-        textField.font = UIFont.italicSystemFont(ofSize: 16)
-        textField.textColor = UIColor(hex: "#333333")
-        textField.autocapitalizationType = .none
-        textField.autocorrectionType = .no
-        return textField
-    }()
-
-    private let addButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.backgroundColor = .jc_yellow
-        button.layer.cornerRadius = 12
-        button.layer.borderWidth = 1
-        button.layer.borderColor = UIColor(hex: "#333333").cgColor
-        button.layer.masksToBounds = true
-        button.setTitle("+", for: .normal)
-        button.setTitleColor(UIColor(hex: "#333333"), for: .normal)
-        button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 24)
-        return button
     }()
 
     private lazy var userCollectionView: UICollectionView = {
@@ -187,6 +192,8 @@ class JC_ChatVC: JC_BaseVC {
         }
         return tableView
     }()
+    
+    private var emptyView = JC_EmptyView()
 
 }
 
@@ -218,6 +225,12 @@ extension JC_ChatVC: UICollectionViewDataSource, UICollectionViewDelegateFlowLay
         CGSize(width: 64, height: 88)
     }
 
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        let user = users[indexPath.item]
+        let roomVC = JC_ChatRoomVC(peerUserId: user.userId, roomTitle: user.name.uppercased())
+        navigationController?.pushViewController(roomVC, animated: true)
+    }
+
 }
 
 extension JC_ChatVC: UITableViewDataSource, UITableViewDelegate {
@@ -240,7 +253,7 @@ extension JC_ChatVC: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let message = messages[indexPath.row]
-        let roomVC = JC_ChatRoomVC(roomTitle: message.userName)
+        let roomVC = JC_ChatRoomVC(peerUserId: message.peerUserId, roomTitle: message.userName)
         navigationController?.pushViewController(roomVC, animated: true)
     }
 

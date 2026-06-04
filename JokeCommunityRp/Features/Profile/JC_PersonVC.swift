@@ -44,8 +44,16 @@ class JC_PersonVC: JC_BaseVC {
         bindActions()
         loadData()
         if postsObserver == nil {
-            postsObserver = NotificationCenter.default.addObserver(
+            let center = NotificationCenter.default
+            postsObserver = center.addObserver(
                 forName: .jcPostsDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.loadData()
+            }
+            center.addObserver(
+                forName: .jcBlockedUsersDidChange,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
@@ -75,8 +83,15 @@ class JC_PersonVC: JC_BaseVC {
             showAddFriend: showAddFriend
         )
         posts = JC_UserData.posts(for: user.userId).map { makePersonPost(from: $0) }
+        updateSelfProfileUI(isSelf: isSelf)
         tableView.reloadData()
         updateTableHeaderLayout()
+    }
+
+    private func updateSelfProfileUI(isSelf: Bool) {
+        bottomBarView.isHidden = isSelf
+        infoButton.isHidden = isSelf
+        tableView.contentInset.bottom = isSelf ? 20 : 88
     }
 
     private func resolvedUser() -> JC_UserModel? {
@@ -166,14 +181,14 @@ class JC_PersonVC: JC_BaseVC {
         }
 
         bottomBarView.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(24)
+            make.leading.trailing.equalToSuperview().inset(30)
             make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-12)
-            make.height.equalTo(64)
+            make.height.equalTo(59)
         }
 
         chatButton.snp.makeConstraints { make in
             make.leading.top.bottom.equalToSuperview()
-            make.trailing.equalTo(callButton.snp.leading).offset(-16)
+            make.trailing.equalTo(callButton.snp.leading).offset(-14)
             make.width.equalTo(callButton)
         }
 
@@ -197,6 +212,7 @@ class JC_PersonVC: JC_BaseVC {
 
     private func bindActions() {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
+        infoButton.addTarget(self, action: #selector(clickReport), for: .touchUpInside)
         chatButton.addTarget(self, action: #selector(clickChat), for: .touchUpInside)
         callButton.addTarget(self, action: #selector(clickCall), for: .touchUpInside)
     }
@@ -215,9 +231,35 @@ class JC_PersonVC: JC_BaseVC {
     @objc private func clickBack() {
         navigationController?.popViewController(animated: true)
     }
+    
+    @objc private func clickReport() {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        guard userId != currentUserId else { return }
+
+        let alert = UIAlertController(
+            title: "Block User",
+            message: "Are you sure you want to block this user? Their posts will be hidden.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Block", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            JC_CurrentUser.shared.blockUser(userId: self.userId)
+            self.navigationController?.popViewController(animated: true)
+        })
+        present(alert, animated: true)
+    }
 
     @objc private func clickChat() {
-        let roomVC = JC_ChatRoomVC(roomTitle: displayName.uppercased())
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        guard userId != currentUserId else { return }
+
+        if !JC_CurrentUser.shared.isFollowing(userId: userId) {
+            JC_ChatAlertView.show(in: self)
+            return
+        }
+
+        let roomVC = JC_ChatRoomVC(peerUserId: userId, roomTitle: displayName.uppercased())
         navigationController?.pushViewController(roomVC, animated: true)
     }
 

@@ -11,6 +11,8 @@ class JC_PostCommentCell: UITableViewCell {
 
     static let reuseIdentifier = "JC_PostCommentCell"
 
+    var onMoreTapped: (() -> Void)?
+
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
@@ -18,6 +20,11 @@ class JC_PostCommentCell: UITableViewCell {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        onMoreTapped = nil
     }
 
     func configure(with comment: JC_PostComment) {
@@ -36,6 +43,8 @@ class JC_PostCommentCell: UITableViewCell {
         cardView.addSubview(nameLabel)
         cardView.addSubview(contentLabel)
         cardView.addSubview(moreButton)
+        
+        moreButton.addTarget(self, action: #selector(clickMoreButton), for: .touchUpInside)
 
         cardView.snp.makeConstraints { make in
             make.top.equalToSuperview()
@@ -66,6 +75,10 @@ class JC_PostCommentCell: UITableViewCell {
             make.trailing.equalToSuperview().offset(-16)
             make.bottom.equalToSuperview().offset(-16)
         }
+    }
+    
+    @objc private func clickMoreButton() {
+        onMoreTapped?()
     }
 
     private let cardView: UIView = {

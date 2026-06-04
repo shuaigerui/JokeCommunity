@@ -9,15 +9,19 @@ import UIKit
 
 class JC_ChatRoomVC: JC_BaseVC {
 
+    private let peerUserId: String
     private let roomTitle: String
 
-    private var messages: [JC_ChatRoomMessage] = [
-        JC_ChatRoomMessage(text: "Hello!", isOutgoing: false, avatar: nil),
-        JC_ChatRoomMessage(text: "Nice to meet you.", isOutgoing: true, avatar: nil)
-    ]
+    private var messages: [JC_ChatRoomMessage] = []
 
-    init(roomTitle: String = "BOOKER") {
-        self.roomTitle = roomTitle
+    init(peerUserId: String, roomTitle: String? = nil) {
+        self.peerUserId = peerUserId
+        if let roomTitle, !roomTitle.isEmpty {
+            self.roomTitle = roomTitle
+        } else {
+            let name = JC_UserData.resolvedUser(userId: peerUserId)?.nickname ?? "CHAT"
+            self.roomTitle = name.uppercased()
+        }
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -29,7 +33,13 @@ class JC_ChatRoomVC: JC_BaseVC {
         super.viewDidLoad()
         setupUI()
         bindActions()
+        reloadMessages()
         scrollToBottom(animated: false)
+    }
+
+    private func reloadMessages() {
+        messages = JC_ChatStore.shared.roomMessages(for: peerUserId)
+        tableView.reloadData()
     }
 
     private func setupUI() {
@@ -87,15 +97,15 @@ class JC_ChatRoomVC: JC_BaseVC {
 
     private func bindActions() {
         backButton.addTarget(self, action: #selector(clickBack), for: .touchUpInside)
+        infoButton.addTarget(self, action: #selector(clickReport), for: .touchUpInside)
         chatInputView.onSendTapped = { [weak self] text in
             self?.appendMessage(text)
         }
     }
 
     private func appendMessage(_ text: String) {
-        messages.append(JC_ChatRoomMessage(text: text, isOutgoing: true, avatar: nil))
-        let indexPath = IndexPath(row: messages.count - 1, section: 0)
-        tableView.insertRows(at: [indexPath], with: .automatic)
+        guard JC_ChatStore.shared.sendMessage(peerUserId: peerUserId, text: text) != nil else { return }
+        reloadMessages()
         scrollToBottom(animated: true)
     }
 
@@ -104,9 +114,28 @@ class JC_ChatRoomVC: JC_BaseVC {
         let indexPath = IndexPath(row: messages.count - 1, section: 0)
         tableView.scrollToRow(at: indexPath, at: .bottom, animated: animated)
     }
-
+    
     @objc private func clickBack() {
         navigationController?.popViewController(animated: true)
+    }
+    
+    @objc private func clickReport() {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        guard peerUserId != currentUserId else { return }
+
+        let alert = UIAlertController(
+            title: "Block User",
+            message: "You won't see this user's posts anymore, and your chat history with them will be permanently deleted. This can't be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Block", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            JC_ChatStore.shared.deleteMessages(peerUserId: self.peerUserId)
+            JC_CurrentUser.shared.blockUser(userId: self.peerUserId)
+            self.navigationController?.popViewController(animated: true)
+        })
+        present(alert, animated: true)
     }
 
     private let navBarView = UIView()

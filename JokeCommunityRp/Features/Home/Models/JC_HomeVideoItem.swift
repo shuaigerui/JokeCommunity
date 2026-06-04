@@ -14,8 +14,10 @@ struct JC_HomeVideoItem {
     let videoURL: URL
     let jokeText: String
     let likeCount: String
+    let dislikeCount: String
     let commentCount: String
     let isLiked: Bool
+    let isDisliked: Bool
 }
 
 enum JC_HomeVideoProvider {
@@ -31,8 +33,10 @@ enum JC_HomeVideoProvider {
                 videoURL: videoURL,
                 jokeText: post.content,
                 likeCount: post.likeCount,
+                dislikeCount: post.dislikeCount,
                 commentCount: "\(post.comments.count)",
-                isLiked: JC_PostStore.shared.isLiked(postId: post.postId)
+                isLiked: JC_PostStore.shared.isLiked(postId: post.postId),
+                isDisliked: JC_PostStore.shared.isDisliked(postId: post.postId)
             )
         }
     }

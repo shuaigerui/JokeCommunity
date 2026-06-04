@@ -252,6 +252,9 @@ extension JC_HomeVC: UICollectionViewDataSource, UICollectionViewDelegate {
         cell.onLikeTapped = { [weak self] postId in
             self?.handleLikeTapped(postId: postId)
         }
+        cell.onDislikeTapped = { [weak self] postId in
+            self?.handleDislikeTapped(postId: postId)
+        }
         cell.onReportTapped = { [weak self] postId in
             self?.handleReportTapped(postId: postId)
         }
@@ -270,13 +273,39 @@ extension JC_HomeVC: UICollectionViewDataSource, UICollectionViewDelegate {
             videoURL: old.videoURL,
             jokeText: old.jokeText,
             likeCount: result.likeCount,
+            dislikeCount: old.dislikeCount,
             commentCount: old.commentCount,
-            isLiked: result.isLiked
+            isLiked: result.isLiked,
+            isDisliked: old.isDisliked
         )
 
         let indexPath = IndexPath(item: index, section: 0)
         if let cell = collectionView.cellForItem(at: indexPath) as? JC_HomeVideoCell {
             cell.applyLikeState(isLiked: result.isLiked, likeCount: result.likeCount)
+        }
+    }
+
+    private func handleDislikeTapped(postId: String) {
+        guard let result = JC_PostStore.shared.toggleDislike(postId: postId),
+              let index = items.firstIndex(where: { $0.postId == postId }) else { return }
+
+        let old = items[index]
+        items[index] = JC_HomeVideoItem(
+            postId: old.postId,
+            authorUserId: old.authorUserId,
+            avatar: old.avatar,
+            videoURL: old.videoURL,
+            jokeText: old.jokeText,
+            likeCount: old.likeCount,
+            dislikeCount: result.dislikeCount,
+            commentCount: old.commentCount,
+            isLiked: old.isLiked,
+            isDisliked: result.isDisliked
+        )
+
+        let indexPath = IndexPath(item: index, section: 0)
+        if let cell = collectionView.cellForItem(at: indexPath) as? JC_HomeVideoCell {
+            cell.applyDislikeState(isDisliked: result.isDisliked, dislikeCount: result.dislikeCount)
         }
     }
 

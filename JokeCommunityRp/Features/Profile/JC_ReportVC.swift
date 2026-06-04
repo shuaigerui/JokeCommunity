@@ -11,6 +11,7 @@ import Toast_Swift
 class JC_ReportVC: JC_BaseVC {
 
     private let postId: String
+    private let commentId: String?
 
     var onReportSubmitted: (() -> Void)?
 
@@ -30,8 +31,9 @@ class JC_ReportVC: JC_BaseVC {
         return image.size.height / image.size.width * width
     }
 
-    init(postId: String) {
+    init(postId: String, commentId: String? = nil) {
         self.postId = postId
+        self.commentId = commentId
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -70,7 +72,7 @@ class JC_ReportVC: JC_BaseVC {
         submitButton.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(30)
             make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-24)
-            make.height.equalTo(imageDisplaySize(named: "report_submit", height: 64).height)
+            make.height.equalTo(64)
         }
 
         tableView.snp.makeConstraints { make in
@@ -95,20 +97,18 @@ class JC_ReportVC: JC_BaseVC {
             return
         }
 
-        JC_PostStore.shared.reportPost(postId: postId)
+        if let commentId {
+            JC_PostStore.shared.reportComment(commentId: commentId)
+        } else {
+            JC_PostStore.shared.reportPost(postId: postId)
+        }
         onReportSubmitted?()
         navigationController?.popViewController(animated: true)
     }
 
     private let backButton: UIButton = {
         let button = UIButton(type: .custom)
-        let imageView = makeImageView(named: "common_back")
-        imageView.contentMode = .scaleAspectFit
-        imageView.isUserInteractionEnabled = false
-        button.addSubview(imageView)
-        imageView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
-        }
+        button.setImage(UIImage(named: "common_back"), for: .normal)
         return button
     }()
 
@@ -120,7 +120,12 @@ class JC_ReportVC: JC_BaseVC {
     }()
 
     private let submitButton: UIButton = {
-        makeAssetButton(imageName: "report_submit")
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "report_submit"), for: .normal)
+        button.backgroundColor = UIColor(hex: "#FFCC00")
+        button.layer.cornerRadius = 32
+        button.layer.masksToBounds = true
+        return button
     }()
 
     private let tableView: UITableView = {

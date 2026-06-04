@@ -14,6 +14,11 @@ class JC_PostCell: UITableViewCell {
     var onMenuTapped: (() -> Void)?
     var onReportTapped: (() -> Void)?
     var onAvatarTapped: (() -> Void)?
+    var onLikeTapped: ((String) -> Void)?
+    var onDislikeTapped: ((String) -> Void)?
+
+    private var postId: String = ""
+    private var authorUserId: String = ""
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -24,14 +29,35 @@ class JC_PostCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        postId = ""
+        authorUserId = ""
+        onMenuTapped = nil
+        onReportTapped = nil
+        onAvatarTapped = nil
+        onLikeTapped = nil
+        onDislikeTapped = nil
+        addFriendButton.isSelected = false
+        applyLikeState(isLiked: false, likeCount: "0")
+        applyDislikeState(isDisliked: false, dislikeCount: "0")
+    }
+
+    func matchesPostId(_ id: String) -> Bool {
+        postId == id
+    }
+
     func configure(with post: JC_PostItem) {
+        postId = post.postId
+        authorUserId = post.authorUserId
         nameLabel.text = post.userName
         ageLabel.text = post.age
         genderImageView.image = UIImage(named: post.gender.iconName)
         avatarImageView.image = post.avatar
         contentLabel.text = post.content
-        likeCountLabel.text = post.likeCount
-        addFriendButton.isHidden = !post.showAddFriend
+        applyLikeState(isLiked: post.isLiked, likeCount: post.likeCount)
+        applyDislikeState(isDisliked: post.isDisliked, dislikeCount: post.dislikeCount)
+        updateAddFriendButtonState()
 
         leftImageView.image = post.images.first ?? nil
         let hasSecondImage = post.images.count > 1
@@ -59,6 +85,7 @@ class JC_PostCell: UITableViewCell {
         actionView.addSubview(likeButton)
         actionView.addSubview(likeCountLabel)
         actionView.addSubview(dislikeButton)
+        actionView.addSubview(dislikeCountLabel)
         actionView.addSubview(reportButton)
         contentView.addSubview(lineView)
 
@@ -149,6 +176,11 @@ class JC_PostCell: UITableViewCell {
             make.size.equalTo(21)
         }
 
+        dislikeCountLabel.snp.makeConstraints { make in
+            make.leading.equalTo(dislikeButton.snp.trailing).offset(6)
+            make.centerY.equalTo(dislikeButton)
+        }
+        
         reportButton.snp.makeConstraints { make in
             make.trailing.centerY.equalToSuperview()
             make.size.equalTo(22)
@@ -161,6 +193,11 @@ class JC_PostCell: UITableViewCell {
         avatarImageView.addGestureRecognizer(
             UITapGestureRecognizer(target: self, action: #selector(avatarTapped))
         )
+        addFriendButton.addTarget(self, action: #selector(addFriendTapped), for: .touchUpInside)
+        configureLikeButton(likeButton)
+        configureDislikeButton(dislikeButton)
+        likeButton.addTarget(self, action: #selector(likeTapped), for: .touchUpInside)
+        dislikeButton.addTarget(self, action: #selector(dislikeTapped), for: .touchUpInside)
 
         lineView.snp.makeConstraints { make in
             make.top.equalTo(actionView.snp.bottom).offset(16)
@@ -208,7 +245,9 @@ class JC_PostCell: UITableViewCell {
     }()
 
     private let addFriendButton: UIButton = {
-        let button = makeAssetButton(imageName: "post_add")
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "post_friend"), for: .normal)
+        button.setImage(UIImage(named: "post_friended"), for: .selected)
         return button
     }()
 
@@ -222,6 +261,64 @@ class JC_PostCell: UITableViewCell {
 
     @objc private func avatarTapped() {
         onAvatarTapped?()
+    }
+
+    @objc private func addFriendTapped() {
+        guard !authorUserId.isEmpty else { return }
+        _ = JC_CurrentUser.shared.toggleFollow(userId: authorUserId)
+        updateAddFriendButtonState()
+    }
+
+    @objc private func likeTapped() {
+        guard !postId.isEmpty else { return }
+        onLikeTapped?(postId)
+    }
+
+    @objc private func dislikeTapped() {
+        guard !postId.isEmpty else { return }
+        onDislikeTapped?(postId)
+    }
+
+    func applyLikeState(isLiked: Bool, likeCount: String) {
+        likeButton.isSelected = isLiked
+        updateLikeButtonAppearance()
+        likeCountLabel.text = likeCount
+    }
+
+    func applyDislikeState(isDisliked: Bool, dislikeCount: String) {
+        dislikeButton.isSelected = isDisliked
+        updateDislikeButtonAppearance()
+        dislikeCountLabel.text = dislikeCount
+    }
+
+    private func configureLikeButton(_ button: UIButton) {
+        let image = UIImage(named: "profile_like")
+        button.setImage(image?.withRenderingMode(.alwaysOriginal), for: .normal)
+        button.setImage(image?.withRenderingMode(.alwaysTemplate), for: .selected)
+        updateLikeButtonAppearance()
+    }
+
+    private func updateLikeButtonAppearance() {
+        likeButton.tintColor = likeButton.isSelected ? UIColor(hex: "#E5404F") : UIColor(hex: "#333333")
+    }
+
+    private func configureDislikeButton(_ button: UIButton) {
+        let image = UIImage(named: "profile_dislike")
+        button.setImage(image?.withRenderingMode(.alwaysTemplate), for: .normal)
+        button.setImage(image?.withRenderingMode(.alwaysOriginal), for: .selected)
+        updateDislikeButtonAppearance()
+    }
+
+    private func updateDislikeButtonAppearance() {
+        if dislikeButton.isSelected {
+            dislikeButton.tintColor = nil
+        } else {
+            dislikeButton.tintColor = .white
+        }
+    }
+
+    private func updateAddFriendButtonState() {
+        addFriendButton.isSelected = JC_CurrentUser.shared.isFollowing(userId: authorUserId)
     }
 
     private let menuButton: UIButton = {
@@ -270,8 +367,6 @@ class JC_PostCell: UITableViewCell {
 
     private let likeButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_like"), for: .normal)
-        button.isUserInteractionEnabled = false
         return button
     }()
 
@@ -284,9 +379,14 @@ class JC_PostCell: UITableViewCell {
 
     private let dislikeButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "profile_dislike"), for: .normal)
-        button.isUserInteractionEnabled = false
         return button
+    }()
+    
+    private let dislikeCountLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.boldSystemFont(ofSize: 14)
+        label.textColor = UIColor(hex: "#333333")
+        return label
     }()
 
     private let reportButton: UIButton = {

@@ -11,11 +11,17 @@ import UIKit
 extension Notification.Name {
     static let jcPostsDidChange = Notification.Name("jcPostsDidChange")
     static let jcUserProfileDidChange = Notification.Name("jcUserProfileDidChange")
+    static let jcBlockedUsersDidChange = Notification.Name("jcBlockedUsersDidChange")
 }
 
 struct JC_LikeToggleResult {
     let isLiked: Bool
     let likeCount: String
+}
+
+struct JC_DislikeToggleResult {
+    let isDisliked: Bool
+    let dislikeCount: String
 }
 
 final class JC_PostStore {
@@ -28,6 +34,36 @@ final class JC_PostStore {
         static let userPosts = "jc_userPosts"
         static let likedPostIds = "jc_likedPostIds"
         static let likeCountOverrides = "jc_likeCountOverrides"
+        static let dislikedPostIds = "jc_dislikedPostIds"
+        static let dislikeCountOverrides = "jc_dislikeCountOverrides"
+        static let postComments = "jc_postComments"
+        static let hiddenCommentIds = "jc_hiddenCommentIds"
+    }
+
+    private struct StoredPostComment: Codable {
+        let commentId: String
+        let userId: String
+        let userName: String
+        let content: String
+
+        init(commentId: String, userId: String, userName: String, content: String) {
+            self.commentId = commentId
+            self.userId = userId
+            self.userName = userName
+            self.content = content
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            userId = try container.decode(String.self, forKey: .userId)
+            userName = try container.decode(String.self, forKey: .userName)
+            content = try container.decode(String.self, forKey: .content)
+            commentId = try container.decodeIfPresent(String.self, forKey: .commentId) ?? UUID().uuidString
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case commentId, userId, userName, content
+        }
     }
 
     private struct StoredPostRecord: Codable {
@@ -35,8 +71,42 @@ final class JC_PostStore {
         let authorUserId: String
         let content: String
         let likeCount: String
+        let dislikeCount: String
         let mediaKind: String
         let mediaFileNames: [String]
+
+        init(
+            postId: String,
+            authorUserId: String,
+            content: String,
+            likeCount: String,
+            dislikeCount: String = "0",
+            mediaKind: String,
+            mediaFileNames: [String]
+        ) {
+            self.postId = postId
+            self.authorUserId = authorUserId
+            self.content = content
+            self.likeCount = likeCount
+            self.dislikeCount = dislikeCount
+            self.mediaKind = mediaKind
+            self.mediaFileNames = mediaFileNames
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case postId, authorUserId, content, likeCount, dislikeCount, mediaKind, mediaFileNames
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            postId = try container.decode(String.self, forKey: .postId)
+            authorUserId = try container.decode(String.self, forKey: .authorUserId)
+            content = try container.decode(String.self, forKey: .content)
+            likeCount = try container.decode(String.self, forKey: .likeCount)
+            dislikeCount = try container.decodeIfPresent(String.self, forKey: .dislikeCount) ?? "0"
+            mediaKind = try container.decode(String.self, forKey: .mediaKind)
+            mediaFileNames = try container.decode([String].self, forKey: .mediaFileNames)
+        }
     }
 
     private var basePosts: [JC_PostModel] = []
@@ -45,12 +115,82 @@ final class JC_PostStore {
     private var reportedPostIds: Set<String> = []
     private var likedPostIds: Set<String> = []
     private var likeCountOverrides: [String: String] = [:]
+    private var dislikedPostIds: Set<String> = []
+    private var dislikeCountOverrides: [String: String] = [:]
+    private var userComments: [String: [StoredPostComment]] = [:]
+    private var hiddenCommentIds: Set<String> = []
 
     private init() {
         reloadBootstrapPosts()
         loadPersistedState()
         mergePersistedUserPosts()
-        applyPersistedLikeCounts()
+        applyPersistedEngagementState()
+    }
+
+    func post(postId: String) -> JC_PostModel? {
+        basePosts.first { $0.postId == postId }
+    }
+
+    func comments(for postId: String) -> [JC_PostComment] {
+        let seed = (post(postId: postId)?.comments ?? []).filter { !hiddenCommentIds.contains($0.commentId) }
+        let extra = (userComments[postId] ?? [])
+            .map { makeComment(from: $0) }
+            .filter { !hiddenCommentIds.contains($0.commentId) }
+        return seed + extra
+    }
+
+    @discardableResult
+    func addComment(postId: String, userId: String, userName: String, content: String) -> JC_PostComment? {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !postId.isEmpty, post(postId: postId) != nil else { return nil }
+
+        let stored = StoredPostComment(
+            commentId: UUID().uuidString,
+            userId: userId,
+            userName: userName,
+            content: trimmed
+        )
+        var list = userComments[postId] ?? []
+        list.append(stored)
+        userComments[postId] = list
+        saveUserComments()
+        notifyPostsDidChange()
+        return makeComment(from: stored)
+    }
+
+    @discardableResult
+    func deleteComment(postId: String, commentId: String) -> Bool {
+        guard var list = userComments[postId],
+              let index = list.firstIndex(where: { $0.commentId == commentId }) else {
+            return false
+        }
+        list.remove(at: index)
+        userComments[postId] = list.isEmpty ? nil : list
+        if list.isEmpty {
+            userComments.removeValue(forKey: postId)
+        }
+        saveUserComments()
+        notifyPostsDidChange()
+        return true
+    }
+
+    func reportComment(commentId: String) {
+        guard !commentId.isEmpty else { return }
+        hiddenCommentIds.insert(commentId)
+        saveHiddenComments()
+        notifyPostsDidChange()
+    }
+
+    private func makeComment(from stored: StoredPostComment) -> JC_PostComment {
+        let avatar = JC_UserData.resolvedUser(userId: stored.userId)?.avatar
+        return JC_PostComment(
+            commentId: stored.commentId,
+            userId: stored.userId,
+            userName: stored.userName,
+            content: stored.content,
+            avatar: avatar,
+            isUserAdded: true
+        )
     }
 
     func isLiked(postId: String) -> Bool {
@@ -86,7 +226,45 @@ final class JC_PostStore {
         return result
     }
 
+    func isDisliked(postId: String) -> Bool {
+        dislikedPostIds.contains(postId)
+    }
+
+    @discardableResult
+    func toggleDislike(postId: String) -> JC_DislikeToggleResult? {
+        guard let index = basePosts.firstIndex(where: { $0.postId == postId }) else { return nil }
+
+        var post = basePosts[index]
+        let wasDisliked = dislikedPostIds.contains(postId)
+        let parsed = Self.parseCountDisplay(post.dislikeCount)
+        var value = parsed.value
+
+        if wasDisliked {
+            dislikedPostIds.remove(postId)
+            value = max(0, value - 1)
+        } else {
+            dislikedPostIds.insert(postId)
+            value += 1
+        }
+
+        let newCountText = Self.formatCountDisplay(value, usesW: parsed.usesW)
+        post.dislikeCount = newCountText
+        post.isDisliked = !wasDisliked
+        basePosts[index] = post
+        dislikeCountOverrides[postId] = newCountText
+        syncUserPostRecordEngagement(postId: postId, likeCount: post.likeCount, dislikeCount: newCountText)
+        saveEngagementState()
+
+        let result = JC_DislikeToggleResult(isDisliked: !wasDisliked, dislikeCount: newCountText)
+        notifyPostsDidChange()
+        return result
+    }
+
     private static func parseLikeDisplay(_ text: String) -> (value: Int, usesW: Bool) {
+        parseCountDisplay(text)
+    }
+
+    private static func parseCountDisplay(_ text: String) -> (value: Int, usesW: Bool) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         if trimmed.hasSuffix("W") {
             return (Int(trimmed.dropLast()) ?? 0, true)
@@ -95,12 +273,17 @@ final class JC_PostStore {
     }
 
     private static func formatLikeDisplay(_ value: Int, usesW: Bool) -> String {
+        formatCountDisplay(value, usesW: usesW)
+    }
+
+    private static func formatCountDisplay(_ value: Int, usesW: Bool) -> String {
         usesW ? "\(max(0, value))W" : "\(max(0, value))"
     }
 
     var visiblePosts: [JC_PostModel] {
         basePosts
             .filter { !deletedPostIds.contains($0.postId) }
+            .filter { !JC_CurrentUser.shared.isUserBlocked(userId: $0.author.userId) }
             .map { post in
                 var updated = post
                 if reportedPostIds.contains(post.postId) {
@@ -123,6 +306,7 @@ final class JC_PostStore {
             authorUserId: author.userId,
             content: content,
             likeCount: "0",
+            dislikeCount: "0",
             mediaKind: mediaKind,
             mediaFileNames: fileNames
         )
@@ -135,6 +319,8 @@ final class JC_PostStore {
             content: content,
             media: postMedia,
             likeCount: "0",
+            dislikeCount: "0",
+            isDisliked: false,
             relationText: "",
             isReport: false,
             comments: []
@@ -146,6 +332,8 @@ final class JC_PostStore {
 
     func deletePost(postId: String) {
         deletedPostIds.insert(postId)
+        userComments.removeValue(forKey: postId)
+        saveUserComments()
         if userPostRecords.contains(where: { $0.postId == postId }) {
             removePersistedUserPost(postId: postId)
         }
@@ -168,16 +356,20 @@ final class JC_PostStore {
         basePosts = posts + basePosts
     }
 
-    private func applyPersistedLikeCounts() {
+    private func applyPersistedEngagementState() {
         for index in basePosts.indices {
             let postId = basePosts[index].postId
             if let count = likeCountOverrides[postId] {
                 basePosts[index].likeCount = count
             }
+            if let count = dislikeCountOverrides[postId] {
+                basePosts[index].dislikeCount = count
+            }
+            basePosts[index].isDisliked = dislikedPostIds.contains(postId)
         }
     }
 
-    private func syncUserPostRecordLikeCount(postId: String, likeCount: String) {
+    private func syncUserPostRecordEngagement(postId: String, likeCount: String, dislikeCount: String) {
         guard let index = userPostRecords.firstIndex(where: { $0.postId == postId }) else { return }
         let old = userPostRecords[index]
         userPostRecords[index] = StoredPostRecord(
@@ -185,26 +377,47 @@ final class JC_PostStore {
             authorUserId: old.authorUserId,
             content: old.content,
             likeCount: likeCount,
+            dislikeCount: dislikeCount,
             mediaKind: old.mediaKind,
             mediaFileNames: old.mediaFileNames
         )
         saveUserPostRecords()
     }
 
+    private func syncUserPostRecordLikeCount(postId: String, likeCount: String) {
+        guard let index = userPostRecords.firstIndex(where: { $0.postId == postId }) else { return }
+        let old = userPostRecords[index]
+        syncUserPostRecordEngagement(
+            postId: postId,
+            likeCount: likeCount,
+            dislikeCount: old.dislikeCount
+        )
+    }
+
     private func makePostModel(from record: StoredPostRecord) -> JC_PostModel? {
         guard let media = loadMedia(for: record) else { return nil }
         let author = JC_UserData.resolvedUser(userId: record.authorUserId)
             ?? JC_UserData.testUser
-        return JC_PostModel(
+        var post = JC_PostModel(
             postId: record.postId,
             author: author,
             content: record.content,
             media: media,
             likeCount: record.likeCount,
+            dislikeCount: record.dislikeCount,
+            isDisliked: dislikedPostIds.contains(record.postId),
             relationText: "",
             isReport: false,
             comments: []
         )
+        if let count = likeCountOverrides[record.postId] {
+            post.likeCount = count
+        }
+        if let count = dislikeCountOverrides[record.postId] {
+            post.dislikeCount = count
+        }
+        post.isDisliked = dislikedPostIds.contains(record.postId)
+        return post
     }
 
     private func loadMedia(for record: StoredPostRecord) -> JC_PostMedia? {
@@ -309,6 +522,20 @@ final class JC_PostStore {
            let overrides = try? JSONDecoder().decode([String: String].self, from: data) {
             likeCountOverrides = overrides
         }
+        if let disliked = UserDefaults.standard.array(forKey: Keys.dislikedPostIds) as? [String] {
+            dislikedPostIds = Set(disliked)
+        }
+        if let data = UserDefaults.standard.data(forKey: Keys.dislikeCountOverrides),
+           let overrides = try? JSONDecoder().decode([String: String].self, from: data) {
+            dislikeCountOverrides = overrides
+        }
+        if let data = UserDefaults.standard.data(forKey: Keys.postComments),
+           let comments = try? JSONDecoder().decode([String: [StoredPostComment]].self, from: data) {
+            userComments = comments
+        }
+        if let hidden = UserDefaults.standard.array(forKey: Keys.hiddenCommentIds) as? [String] {
+            hiddenCommentIds = Set(hidden)
+        }
     }
 
     private func savePersistedState() {
@@ -317,9 +544,17 @@ final class JC_PostStore {
     }
 
     private func saveLikeState() {
+        saveEngagementState()
+    }
+
+    private func saveEngagementState() {
         UserDefaults.standard.set(Array(likedPostIds), forKey: Keys.likedPostIds)
         if let data = try? JSONEncoder().encode(likeCountOverrides) {
             UserDefaults.standard.set(data, forKey: Keys.likeCountOverrides)
+        }
+        UserDefaults.standard.set(Array(dislikedPostIds), forKey: Keys.dislikedPostIds)
+        if let data = try? JSONEncoder().encode(dislikeCountOverrides) {
+            UserDefaults.standard.set(data, forKey: Keys.dislikeCountOverrides)
         }
     }
 
@@ -327,6 +562,16 @@ final class JC_PostStore {
         if let data = try? JSONEncoder().encode(userPostRecords) {
             UserDefaults.standard.set(data, forKey: Keys.userPosts)
         }
+    }
+
+    private func saveUserComments() {
+        if let data = try? JSONEncoder().encode(userComments) {
+            UserDefaults.standard.set(data, forKey: Keys.postComments)
+        }
+    }
+
+    private func saveHiddenComments() {
+        UserDefaults.standard.set(Array(hiddenCommentIds), forKey: Keys.hiddenCommentIds)
     }
 
     private func notifyPostsDidChange() {

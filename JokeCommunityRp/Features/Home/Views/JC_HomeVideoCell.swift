@@ -13,9 +13,11 @@ class JC_HomeVideoCell: UICollectionViewCell {
     static let reuseIdentifier = "JC_HomeVideoCell"
 
     var onLikeTapped: ((String) -> Void)?
+    var onDislikeTapped: ((String) -> Void)?
     var onReportTapped: ((String) -> Void)?
 
     private var postId: String = ""
+    private var authorUserId: String = ""
     private var player: AVPlayer?
     private var playerLayer: AVPlayerLayer?
     private var endObserver: NSObjectProtocol?
@@ -44,18 +46,24 @@ class JC_HomeVideoCell: UICollectionViewCell {
     override func prepareForReuse() {
         super.prepareForReuse()
         onLikeTapped = nil
+        onDislikeTapped = nil
         onReportTapped = nil
         postId = ""
+        authorUserId = ""
+        collectBadgeView.isHidden = false
         applyLikeState(isLiked: false, likeCount: "0")
+        applyDislikeState(isDisliked: false, dislikeCount: "0")
     }
 
     func configure(with item: JC_HomeVideoItem) {
         stop()
         postId = item.postId
+        authorUserId = item.authorUserId
         avatarImageView.image = item.avatar
         jokeLabel.text = item.jokeText
-        commentCountLabel.text = item.commentCount
         applyLikeState(isLiked: item.isLiked, likeCount: item.likeCount)
+        applyDislikeState(isDisliked: item.isDisliked, dislikeCount: item.dislikeCount)
+        updateCollectBadgeVisibility()
 
         let playerItem = AVPlayerItem(url: item.videoURL)
         let player = AVPlayer(playerItem: playerItem)
@@ -107,7 +115,7 @@ class JC_HomeVideoCell: UICollectionViewCell {
         rightActionView.addSubview(likeButton)
         rightActionView.addSubview(likeCountLabel)
         rightActionView.addSubview(dislikeButton)
-        rightActionView.addSubview(commentCountLabel)
+        rightActionView.addSubview(dislikeCountLabel)
         rightActionView.addSubview(reportButton)
 
         contentView.addSubview(jokeContainerView)
@@ -147,13 +155,13 @@ class JC_HomeVideoCell: UICollectionViewCell {
             make.width.height.equalTo(36)
         }
 
-        commentCountLabel.snp.makeConstraints { make in
+        dislikeCountLabel.snp.makeConstraints { make in
             make.top.equalTo(dislikeButton.snp.bottom).offset(4)
             make.centerX.equalToSuperview()
         }
 
         reportButton.snp.makeConstraints { make in
-            make.top.equalTo(commentCountLabel.snp.bottom).offset(16)
+            make.top.equalTo(dislikeCountLabel.snp.bottom).offset(16)
             make.centerX.bottom.equalToSuperview()
             make.width.height.equalTo(36)
         }
@@ -169,7 +177,10 @@ class JC_HomeVideoCell: UICollectionViewCell {
         }
 
         configureLikeButton(likeButton)
+        configureDislikeButton(dislikeButton)
+        collectBadgeView.addTarget(self, action: #selector(likeCollect), for: .touchUpInside)
         likeButton.addTarget(self, action: #selector(likeTapped), for: .touchUpInside)
+        dislikeButton.addTarget(self, action: #selector(dislikeTapped), for: .touchUpInside)
         reportButton.addTarget(self, action: #selector(reportTapped), for: .touchUpInside)
     }
 
@@ -201,10 +212,48 @@ class JC_HomeVideoCell: UICollectionViewCell {
         updateLikeButtonAppearance()
         likeCountLabel.text = likeCount
     }
+
+    func applyDislikeState(isDisliked: Bool, dislikeCount: String) {
+        dislikeButton.isSelected = isDisliked
+        updateDislikeButtonAppearance()
+        dislikeCountLabel.text = dislikeCount
+    }
+
+    private func configureDislikeButton(_ button: UIButton) {
+        let image = UIImage(named: "home_dislike")?.withRenderingMode(.alwaysTemplate)
+        button.setImage(image, for: .normal)
+        button.setImage(image, for: .selected)
+        updateDislikeButtonAppearance()
+    }
+
+    private func updateDislikeButtonAppearance() {
+        dislikeButton.tintColor = dislikeButton.isSelected ? .black : .white
+    }
+    
+    @objc private func likeCollect() {
+        guard !authorUserId.isEmpty else { return }
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        guard authorUserId != currentUserId else { return }
+
+        _ = JC_CurrentUser.shared.toggleFollow(userId: authorUserId)
+        updateCollectBadgeVisibility()
+    }
+
+    private func updateCollectBadgeVisibility() {
+        let currentUserId = JC_CurrentUser.shared.user?.userId ?? JC_UserModel.current.userId
+        let isSelf = authorUserId == currentUserId
+        let isFollowing = JC_CurrentUser.shared.isFollowing(userId: authorUserId)
+        collectBadgeView.isHidden = isSelf || isFollowing
+    }
     
     @objc private func likeTapped() {
         guard !postId.isEmpty else { return }
         onLikeTapped?(postId)
+    }
+    
+    @objc private func dislikeTapped() {
+        guard !postId.isEmpty else { return }
+        onDislikeTapped?(postId)
     }
     
     @objc private func reportTapped() {
@@ -222,8 +271,12 @@ class JC_HomeVideoCell: UICollectionViewCell {
         return imageView
     }()
 
-    private let collectBadgeView = makeImageView(named: "home_collect")
-
+    private let collectBadgeView: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "home_collect"), for: .normal)
+        return button
+    }()
+    
     private let likeButton: UIButton = {
         let button = UIButton(type: .custom)
         return button
@@ -239,12 +292,10 @@ class JC_HomeVideoCell: UICollectionViewCell {
 
     private let dislikeButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.setImage(UIImage(named: "home_dislike"), for: .normal)
-        button.isUserInteractionEnabled = false
         return button
     }()
 
-    private let commentCountLabel: UILabel = {
+    private let dislikeCountLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.boldSystemFont(ofSize: 13)
         label.textColor = .white

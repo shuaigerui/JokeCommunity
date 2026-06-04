@@ -43,6 +43,8 @@ struct JC_PostModel {
     var content: String
     var media: JC_PostMedia
     var likeCount: String
+    var dislikeCount: String
+    var isDisliked: Bool
     var relationText: String
     var isReport: Bool
     var comments: [JC_PostComment]
@@ -53,12 +55,19 @@ struct JC_PostModel {
         content: "This is my first time sharing a joke, I .......",
         media: .images([]),
         likeCount: "100W",
+        dislikeCount: "0",
+        isDisliked: false,
         relationText: "Good Friend",
         isReport: false,
         comments: [
-            JC_PostComment(userName: "Angela", content: "I really like your jokes", avatar: nil),
-            JC_PostComment(userName: "Angela", content: "I really like your jokes", avatar: nil),
-            JC_PostComment(userName: "Angela", content: "I really like your jokes", avatar: nil)
+            JC_PostComment(
+                commentId: "sample_1",
+                userId: "user_002",
+                userName: "Angela",
+                content: "I really like your jokes",
+                avatar: nil,
+                isUserAdded: false
+            )
         ]
     )
 

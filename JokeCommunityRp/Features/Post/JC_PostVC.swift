@@ -90,8 +90,75 @@ class JC_PostVC: JC_BaseVC {
             content: post.content,
             images: images,
             likeCount: post.likeCount,
+            dislikeCount: post.dislikeCount,
+            isLiked: JC_PostStore.shared.isLiked(postId: post.postId),
+            isDisliked: JC_PostStore.shared.isDisliked(postId: post.postId),
             showAddFriend: !isSelf && !isFollowing
         )
+    }
+
+    private func updatePostItem(postId: String, transform: (JC_PostItem) -> JC_PostItem) {
+        if let index = squarePosts.firstIndex(where: { $0.postId == postId }) {
+            squarePosts[index] = transform(squarePosts[index])
+        }
+        if let index = friendPosts.firstIndex(where: { $0.postId == postId }) {
+            friendPosts[index] = transform(friendPosts[index])
+        }
+    }
+
+    private func handleLikeTapped(postId: String) {
+        guard let result = JC_PostStore.shared.toggleLike(postId: postId) else { return }
+        updatePostItem(postId: postId) { item in
+            JC_PostItem(
+                postId: item.postId,
+                authorUserId: item.authorUserId,
+                userName: item.userName,
+                age: item.age,
+                gender: item.gender,
+                avatar: item.avatar,
+                content: item.content,
+                images: item.images,
+                likeCount: result.likeCount,
+                dislikeCount: item.dislikeCount,
+                isLiked: result.isLiked,
+                isDisliked: item.isDisliked,
+                showAddFriend: item.showAddFriend
+            )
+        }
+        refreshVisibleCell(for: postId) { cell in
+            cell.applyLikeState(isLiked: result.isLiked, likeCount: result.likeCount)
+        }
+    }
+
+    private func handleDislikeTapped(postId: String) {
+        guard let result = JC_PostStore.shared.toggleDislike(postId: postId) else { return }
+        updatePostItem(postId: postId) { item in
+            JC_PostItem(
+                postId: item.postId,
+                authorUserId: item.authorUserId,
+                userName: item.userName,
+                age: item.age,
+                gender: item.gender,
+                avatar: item.avatar,
+                content: item.content,
+                images: item.images,
+                likeCount: item.likeCount,
+                dislikeCount: result.dislikeCount,
+                isLiked: item.isLiked,
+                isDisliked: result.isDisliked,
+                showAddFriend: item.showAddFriend
+            )
+        }
+        refreshVisibleCell(for: postId) { cell in
+            cell.applyDislikeState(isDisliked: result.isDisliked, dislikeCount: result.dislikeCount)
+        }
+    }
+
+    private func refreshVisibleCell(for postId: String, update: (JC_PostCell) -> Void) {
+        for cell in tableView.visibleCells {
+            guard let postCell = cell as? JC_PostCell, postCell.matchesPostId(postId) else { continue }
+            update(postCell)
+        }
     }
 
     private func handlePostAction(for post: JC_PostItem) {
@@ -269,6 +336,12 @@ extension JC_PostVC: UITableViewDataSource, UITableViewDelegate {
         cell.onAvatarTapped = { [weak self] in
             let personVC = JC_PersonVC(userId: postItem.authorUserId)
             self?.navigationController?.pushViewController(personVC, animated: true)
+        }
+        cell.onLikeTapped = { [weak self] postId in
+            self?.handleLikeTapped(postId: postId)
+        }
+        cell.onDislikeTapped = { [weak self] postId in
+            self?.handleDislikeTapped(postId: postId)
         }
         return cell
     }

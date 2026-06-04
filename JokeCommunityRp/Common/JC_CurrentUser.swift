@@ -25,7 +25,10 @@ final class JC_CurrentUser {
         static let loginType = "jc_loginType"
         static let storedUser = "jc_storedUser"
         static let testUserProfile = "jc_testUserProfile"
+        static let blockedUserIds = "jc_blockedUserIds"
     }
+
+    private var blockedUserIds: Set<String> = []
 
     private enum LoginType: String {
         case test
@@ -83,7 +86,53 @@ final class JC_CurrentUser {
         }
     }
 
-    private init() {}
+    private init() {
+        loadBlockedUserIds()
+    }
+
+    func isUserBlocked(userId: String) -> Bool {
+        blockedUserIds.contains(userId)
+    }
+
+    var blockedUserIdsList: [String] {
+        blockedUserIds.sorted()
+    }
+
+    func blockUser(userId: String) {
+        guard !userId.isEmpty else { return }
+        blockedUserIds.insert(userId)
+        saveBlockedUserIds()
+        NotificationCenter.default.post(name: .jcBlockedUsersDidChange, object: nil)
+        NotificationCenter.default.post(name: .jcPostsDidChange, object: nil)
+    }
+
+    func unblockUser(userId: String) {
+        guard blockedUserIds.remove(userId) != nil else { return }
+        saveBlockedUserIds()
+        NotificationCenter.default.post(name: .jcBlockedUsersDidChange, object: nil)
+        NotificationCenter.default.post(name: .jcPostsDidChange, object: nil)
+    }
+
+    func isFollowing(userId: String) -> Bool {
+        user?.isFollowing(userId: userId) ?? false
+    }
+
+    @discardableResult
+    func toggleFollow(userId: String) -> Bool? {
+        guard var model = user, model.userId != userId else { return nil }
+
+        if let index = model.followingUserIds.firstIndex(of: userId) {
+            model.followingUserIds.remove(at: index)
+        } else {
+            model.followingUserIds.append(userId)
+        }
+
+        user = model
+        persistProfile(avatarPath: currentStoredAvatarPath())
+        NotificationCenter.default.post(name: .jcUserProfileDidChange, object: nil)
+        NotificationCenter.default.post(name: .jcPostsDidChange, object: nil)
+        return model.isFollowing(userId: userId)
+    }
 
     func restoreSession() {
         guard UserDefaults.standard.bool(forKey: Keys.isLoggedIn) else {
@@ -255,10 +304,22 @@ final class JC_CurrentUser {
 
     private func clearSession() {
         user = nil
+        blockedUserIds.removeAll()
         UserDefaults.standard.set(false, forKey: Keys.isLoggedIn)
         UserDefaults.standard.removeObject(forKey: Keys.loginType)
         UserDefaults.standard.removeObject(forKey: Keys.storedUser)
         UserDefaults.standard.removeObject(forKey: Keys.testUserProfile)
+        UserDefaults.standard.removeObject(forKey: Keys.blockedUserIds)
+    }
+
+    private func loadBlockedUserIds() {
+        if let ids = UserDefaults.standard.array(forKey: Keys.blockedUserIds) as? [String] {
+            blockedUserIds = Set(ids)
+        }
+    }
+
+    private func saveBlockedUserIds() {
+        UserDefaults.standard.set(Array(blockedUserIds), forKey: Keys.blockedUserIds)
     }
 
     private func persistProfile(avatarPath: String?) {
